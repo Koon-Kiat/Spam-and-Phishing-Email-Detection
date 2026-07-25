@@ -1,5 +1,11 @@
 # Spam and Phishing Email Detection
 
+> [!IMPORTANT]
+> **Research-only / experimental project.** The released model demonstrates leakage
+> controls and cross-domain evaluation; it is not a production security control. Its
+> blind external test produced 48.87% macro F1 and an 84.04% false-positive rate. Do
+> not use it for automatic email blocking or account decisions.
+
 A reproducible email-risk classifier with grouped leakage controls, calibrated
 probabilities, external validation, privacy-safe monitoring, and a browser review tool.
 The model is advisory: it is not suitable for automatic blocking without validation on
