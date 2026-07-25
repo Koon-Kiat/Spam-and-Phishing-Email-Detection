@@ -1,0 +1,220 @@
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="633.6pt" height="378pt" viewBox="0 0 633.6 378" xmlns="http://www.w3.org/2000/svg" version="1.1" role="img" aria-labelledby="chart-title chart-description">
+ <title id="chart-title">Confusion matrix — untouched test</title>
+ <desc id="chart-description">Counts and row percentages for true negatives, false positives, false negatives, and true positives.</desc>
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:title>Confusion matrix — untouched test</dc:title>
+    <dc:description>Counts and row percentages for true negatives, false positives, false negatives, and true positives.</dc:description>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib 3.11.1</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 378
+L 633.6 378
+L 633.6 0
+L 0 0
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 189.806207 325.08
+L 416.606207 325.08
+L 416.606207 98.28
+L 189.806207 98.28
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g clip-path="url(#p9279ef8afb)">
+    <image xlink:href="data:image/png;base64,
+iVBORw0KGgoAAAANSUhEUgAAATsAAAE7CAYAAACi3CbHAAAEQUlEQVR4nO3WsRGCUBBAQaAvCrADYzIjWyGyFNsygBy7+ARvt4G7ueDNzefxuyYY6PF+uTfDLeNHAowndkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAwr9vzunsJWr775+4VCPLZAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2QILYAQliBySIHZAgdkCC2AEJYgckiB2QIHZAgtgBCWIHJIgdkCB2wFTwB6VSCz04B3cRAAAAAElFTkSuQmCC" id="imagedaf5ea24e9" transform="scale(1 -1) translate(0 -226.8)" x="190.08" y="-98.64" width="226.8" height="226.8"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_1"/>
+     <g id="text_1">
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: middle; fill: #565a57" x="246.506207" y="335.713906" transform="rotate(-0 246.506207 335.713906)">Predicted safe</text>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_2"/>
+     <g id="text_2">
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: middle; fill: #565a57" x="359.906207" y="335.612969" transform="rotate(-0 359.906207 335.612969)">Predicted phishing</text>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_3"/>
+     <g id="text_3">
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: end; fill: #565a57" x="186.306207" y="158.546953" transform="rotate(-0 186.306207 158.546953)">Actually safe</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_4"/>
+     <g id="text_4">
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: end; fill: #565a57" x="186.306207" y="271.896484" transform="rotate(-0 186.306207 271.896484)">Actually phishing</text>
+     </g>
+    </g>
+   </g>
+   <g id="text_5">
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; fill: #ffffff" transform="translate(235.827145 145.778555)">4,207</text>
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; fill: #ffffff" transform="translate(203.305504 158.304375)">99.25% of actual class</text>
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; fill: #ffffff" transform="translate(210.206676 169.035117)">True negative (TN)</text>
+   </g>
+   <g id="text_6">
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; fill: #202020" transform="translate(355.054645 146.303789)">32</text>
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; fill: #202020" transform="translate(319.131285 158.304375)">0.75% of actual class</text>
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; fill: #202020" transform="translate(324.916598 169.101211)">False positive (FP)</text>
+   </g>
+   <g id="text_7">
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; fill: #202020" transform="translate(241.654645 259.721367)">15</text>
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; fill: #202020" transform="translate(205.731285 271.704375)">0.35% of actual class</text>
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; fill: #202020" transform="translate(209.112614 282.477305)">False negative (FN)</text>
+   </g>
+   <g id="text_8">
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; fill: #ffffff" transform="translate(349.227145 259.196133)">4,216</text>
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; fill: #ffffff" transform="translate(316.705504 271.704375)">99.65% of actual class</text>
+    <text style="font-size: 9px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; fill: #ffffff" transform="translate(326.01066 282.459023)">True positive (TP)</text>
+   </g>
+  </g>
+  <g id="axes_2">
+   <g id="patch_3">
+    <path d="M 518.317645 325.08
+L 532.224 325.08
+L 532.224 98.28
+L 518.317645 98.28
+z
+" style="fill: #ffffff"/>
+   </g>
+   <image xlink:href="data:image/png;base64,
+iVBORw0KGgoAAAANSUhEUgAAABMAAAE7CAYAAAA/2LojAAABrElEQVR4nO2awa3DAAxC+Yj9V/2H9hx3BkscUDADPMnGkETt3/fzPzCJLpAdphnblMgdk06YfBsDhFQDNB1uwmiAOnZGJ0wdFaTY09BV0IsMUOyd0QlTR2vQCdPtbC11vOzRCVNsBemadi2iooIUe7R0wnQJWIuoSAA74qTYh7Bid0YnTB0VpLuztQij1NG0dMJ0nztrqaOCFDsmY2G6ClpLHRWkjjjpKmgt3c7W0jXtWupoWnbUtmINUOzO6ITpKmgtXQW9KE66F5e1dDtbizBKHbWtjtZgx87YUUHywsY55sQe7YSOqVgYbSTYx0TozvSUGDBWGArGpI2E6ARMhwFP6piKhdFGQs8DZVLLkTYSko9WsUGnjYTwBEwmjDYSksdUbp89xqOljYRwAyYTRhsJyWMq9sWFNhJqHsKKLUf6UMje2RhhqIjTVGSTJQZMagJ0ffaibNJGQlMCxgZjiwHTAKONhOTPatUYMAd7jwFIdfNJvTPaSEj+2UOxMNpI6InTxBrwpI6pDhhtJNT8Z0/BBkzDQ1jBBiB0THXAaCMh+WcPebOJEgOmAPYD5CTY/Til5JkAAAAASUVORK5CYII=" id="image7b394cffc4" transform="scale(1 -1) translate(0 -226.8)" x="518.4" y="-98.64" width="13.68" height="226.8"/>
+   <g id="matplotlib.axis_3"/>
+   <g id="matplotlib.axis_4">
+    <g id="ytick_3">
+     <g id="line2d_5">
+      <defs>
+       <path id="m8dd9c0f87e" d="M 0 0
+L 3.5 0
+" style="stroke: #565a57; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#m8dd9c0f87e" x="532.224" y="298.896234" style="fill: #565a57; stroke: #565a57; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_9">
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: start; fill: #565a57" x="539.224" y="302.354364" transform="rotate(-0 539.224 302.354364)">500</text>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_6">
+      <g>
+       <use xlink:href="#m8dd9c0f87e" x="532.224" y="271.902661" style="fill: #565a57; stroke: #565a57; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_10">
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: start; fill: #565a57" x="539.224" y="275.360791" transform="rotate(-0 539.224 275.360791)">1,000</text>
+     </g>
+    </g>
+    <g id="ytick_5">
+     <g id="line2d_7">
+      <g>
+       <use xlink:href="#m8dd9c0f87e" x="532.224" y="244.909088" style="fill: #565a57; stroke: #565a57; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_11">
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: start; fill: #565a57" x="539.224" y="248.367218" transform="rotate(-0 539.224 248.367218)">1,500</text>
+     </g>
+    </g>
+    <g id="ytick_6">
+     <g id="line2d_8">
+      <g>
+       <use xlink:href="#m8dd9c0f87e" x="532.224" y="217.915515" style="fill: #565a57; stroke: #565a57; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_12">
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: start; fill: #565a57" x="539.224" y="221.373645" transform="rotate(-0 539.224 221.373645)">2,000</text>
+     </g>
+    </g>
+    <g id="ytick_7">
+     <g id="line2d_9">
+      <g>
+       <use xlink:href="#m8dd9c0f87e" x="532.224" y="190.921942" style="fill: #565a57; stroke: #565a57; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_13">
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: start; fill: #565a57" x="539.224" y="194.380072" transform="rotate(-0 539.224 194.380072)">2,500</text>
+     </g>
+    </g>
+    <g id="ytick_8">
+     <g id="line2d_10">
+      <g>
+       <use xlink:href="#m8dd9c0f87e" x="532.224" y="163.928369" style="fill: #565a57; stroke: #565a57; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_14">
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: start; fill: #565a57" x="539.224" y="167.386499" transform="rotate(-0 539.224 167.386499)">3,000</text>
+     </g>
+    </g>
+    <g id="ytick_9">
+     <g id="line2d_11">
+      <g>
+       <use xlink:href="#m8dd9c0f87e" x="532.224" y="136.934796" style="fill: #565a57; stroke: #565a57; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_15">
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: start; fill: #565a57" x="539.224" y="140.392926" transform="rotate(-0 539.224 140.392926)">3,500</text>
+     </g>
+    </g>
+    <g id="ytick_10">
+     <g id="line2d_12">
+      <g>
+       <use xlink:href="#m8dd9c0f87e" x="532.224" y="109.941224" style="fill: #565a57; stroke: #565a57; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_16">
+      <text style="font-size: 9.5px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: start; fill: #565a57" x="539.224" y="113.399353" transform="rotate(-0 539.224 113.399353)">4,000</text>
+     </g>
+    </g>
+    <g id="text_17">
+     <text style="font-size: 9.5px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: middle; fill: #313432" x="572.684947" y="211.68" transform="rotate(-90 572.684947 211.68)">Messages</text>
+    </g>
+   </g>
+   <g id="LineCollection_1"/>
+   <g id="patch_4">
+    <path d="M 518.317645 325.08
+L 525.270823 325.08
+L 532.224 325.08
+L 532.224 98.28
+L 525.270823 98.28
+L 518.317645 98.28
+L 518.317645 325.08
+z
+" style="fill: none; stroke: #b6b8b7; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+  </g>
+  <g id="text_18">
+   <text style="font-weight: 600; font-size: 16px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: start; fill: #252725" x="38.016" y="29.0325" transform="rotate(-0 38.016 29.0325)">Confusion matrix — untouched test</text>
+  </g>
+  <g id="text_19">
+   <text style="font-size: 9px; font-family: 'Segoe UI', 'Arial', 'DejaVu Sans', sans-serif; text-anchor: start; fill: #666a67" x="38.016" y="50.132812" transform="rotate(-0 38.016 50.132812)">Training run: 25 Jul 2026, 10:13 UTC · rows are actual labels</text>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p9279ef8afb">
+   <rect x="189.806207" y="98.28" width="226.8" height="226.8"/>
+  </clipPath>
+ </defs>
+</svg>

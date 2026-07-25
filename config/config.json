@@ -1,0 +1,50 @@
+{
+  "data": {
+    "phishing_email": "data/phishing_email.csv",
+    "ceas_08": "data/ceas_08.csv"
+  },
+  "paths": {
+    "artifacts": "artifacts",
+    "reports": "reports"
+  },
+  "random_seed": 42,
+  "splits": {
+    "train": 0.70,
+    "validation": 0.15,
+    "test": 0.15,
+    "group_folds": 20,
+    "train_folds": 14,
+    "validation_folds": 3,
+    "test_folds": 3
+  },
+  "generalization": {
+    "minhash_permutations": 128,
+    "near_duplicate_jaccard": 0.85,
+    "cv_repetitions": 3,
+    "cv_folds": 5,
+    "calibration_bins": 10
+  },
+  "max_text_chars": 100000,
+  "max_request_bytes": 5242880,
+  "classical": {
+    "word_max_features": 120000,
+    "char_max_features": 160000,
+    "min_document_frequency": 2
+  },
+  "transformer": {
+    "enabled": true,
+    "model_name": "distilbert/distilbert-base-uncased",
+    "max_length": 256,
+    "epochs": 3,
+    "batch_size": 16,
+    "learning_rate": 0.00002
+  },
+  "selection": {
+    "tolerance": 0.005,
+    "ensemble_min_gain": 0.005
+  },
+  "server": {
+    "host": "127.0.0.1",
+    "port": 5000
+  }
+}
