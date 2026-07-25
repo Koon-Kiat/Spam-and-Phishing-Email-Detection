@@ -69,7 +69,7 @@ remain untracked; their hashes are recorded in the model bundle.
       rollback instructions are present.
 - [x] CI runs lint, tests, dependency checks, and raw-data/release-source guards.
 - [x] Private GitHub CI passed for the release commit
-      ([run 30155871760](https://github.com/Koon-Kiat/Spam-And-Phishing-Detection-Using-Machine-Learning/actions/runs/30155871760)).
+      ([run 30156025486](https://github.com/Koon-Kiat/Spam-And-Phishing-Detection-Using-Machine-Learning/actions/runs/30156025486)).
 - [ ] GitHub `v1.0.0` release and checksum-verified model asset were published.
 - [ ] Private vulnerability reporting was enabled before public visibility.
 - [ ] Repository visibility was changed from private to public only after the prior gates.
