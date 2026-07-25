@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="485" viewBox="0 0 820 485" role="img" aria-labelledby="title desc">
+<title id="title">Untouched test confusion matrix</title>
+<desc id="desc">Counts of true negatives, false positives, false negatives, and true positives.</desc>
+<style>text{font-family:Segoe UI,Arial,sans-serif;fill:#25231f}.title{font-size:24px;font-weight:700}.subtitle{font-size:13px;fill:#6d675d}.axis{font-size:12px;fill:#6d675d}.label{font-size:12px;font-weight:600}.grid{stroke:#d2c7b6;stroke-width:1}.frame{fill:#fffaf0;stroke:#bdb19f}</style>
+<rect width="820" height="485" fill="#f5efe3"/>
+<text class="title" x="48" y="44">Untouched test confusion matrix</text>
+<text class="subtitle" x="48" y="69">Training run: 25 Jul 2026, 10:13:18 UTC · rows are actual labels</text>
+<text class="label" x="280" y="115" text-anchor="middle">Predicted safe</text>
+<text class="label" x="540" y="115" text-anchor="middle">Predicted phishing</text>
+<text class="label" x="140" y="235" text-anchor="end">Actually safe</text>
+<text class="label" x="140" y="400" text-anchor="end">Actually phishing</text>
+<rect x="155" y="135" width="250" height="145" rx="8" fill="#e0e7d7" stroke="#81786b"/>
+<text x="280" y="202" text-anchor="middle" style="font-size:34px;font-weight:700">4,207</text>
+<text class="axis" x="280" y="234" text-anchor="middle">True negative (TN)</text>
+<rect x="415" y="135" width="250" height="145" rx="8" fill="#f3ded4" stroke="#81786b"/>
+<text x="540" y="202" text-anchor="middle" style="font-size:34px;font-weight:700">32</text>
+<text class="axis" x="540" y="234" text-anchor="middle">False positive (FP)</text>
+<rect x="155" y="300" width="250" height="145" rx="8" fill="#f3ded4" stroke="#81786b"/>
+<text x="280" y="367" text-anchor="middle" style="font-size:34px;font-weight:700">15</text>
+<text class="axis" x="280" y="399" text-anchor="middle">False negative (FN)</text>
+<rect x="415" y="300" width="250" height="145" rx="8" fill="#e0e7d7" stroke="#81786b"/>
+<text x="540" y="367" text-anchor="middle" style="font-size:34px;font-weight:700">4,216</text>
+<text class="axis" x="540" y="399" text-anchor="middle">True positive (TP)</text>
+</svg>

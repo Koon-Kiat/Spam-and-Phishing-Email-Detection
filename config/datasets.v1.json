@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "policy": {
+    "redistribute_raw_data": false,
+    "license_acceptance_required": true,
+    "privacy_review": "Automated scanning found address, URL, and phone-like content. Raw rows are excluded from Git and releases."
+  },
+  "datasets": [
+    {
+      "id": "combined_kaggle_v1",
+      "title": "Phishing Email Dataset",
+      "provider": "Kaggle",
+      "source_url": "https://www.kaggle.com/datasets/naserabdullahalam/phishing-email-dataset",
+      "download_url": "https://www.kaggle.com/api/v1/datasets/download/naserabdullahalam/phishing-email-dataset?datasetVersionNumber=1",
+      "version": 1,
+      "license": "CC BY-SA 4.0",
+      "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "archive_sha256": "3a21343518a3a5e762d964ef6eced697f3cbde3a6d0ab7c9cbe0c17dc93b98f8",
+      "archive_bytes": 80864554,
+      "members": [
+        {
+          "archive_path": "CEAS_08.csv",
+          "destination": "data/ceas_08.csv",
+          "sha256": "22375e7d5f5a8229dbe987914ee9b3705656c590038662a7df6054629b376074",
+          "bytes": 67902056,
+          "normalization": "none"
+        }
+      ]
+    },
+    {
+      "id": "standalone_kaggle_v1",
+      "title": "Phishing Emails",
+      "provider": "Kaggle",
+      "source_url": "https://www.kaggle.com/datasets/subhajournal/phishingemails",
+      "download_url": "https://www.kaggle.com/api/v1/datasets/download/subhajournal/phishingemails?datasetVersionNumber=1",
+      "version": 1,
+      "license": "LGPL-3.0",
+      "license_url": "https://www.gnu.org/licenses/lgpl-3.0.html",
+      "archive_sha256": "5d4d5cd13963aa8272ee771a64cae31aad9a4028534a9fc598f00fbf52b821be",
+      "archive_bytes": 18918073,
+      "members": [
+        {
+          "archive_path": "Phishing_Email.csv",
+          "destination": "data/phishing_email.csv",
+          "source_sha256": "18ef4fff1acb8986f0ab01e83ede6025420c829656af5a377560fce17e153b97",
+          "source_bytes": 52034604,
+          "sha256": "41290f595b8b436cb7e292e6463fd5640024e7f2dc3a520a29756bde01ea02c4",
+          "bytes": 52015953,
+          "normalization": "crlf_to_lf"
+        }
+      ]
+    }
+  ],
+  "external": [
+    {
+      "id": "spaphish_v5",
+      "title": "SpaPhish: A Spanish Dataset for Phishing and Psychological Pattern Detection",
+      "provider": "Mendeley Data",
+      "source_url": "https://data.mendeley.com/datasets/hz2d6gz7pc/5",
+      "doi": "10.17632/hz2d6gz7pc.5",
+      "version": 5,
+      "license": "CC BY 4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "download_url": "https://data.mendeley.com/public-files/datasets/hz2d6gz7pc/files/f796c8e2-3768-4c2d-8b73-48f0d7771de5/file_downloaded",
+      "destination": "data/external/spaphish_v5.csv",
+      "sha256": "656b2245d58da72d640680e5c2a168673a130b38607f2a427c773bbb167e995e",
+      "bytes": 5098917,
+      "expected_rows": 1395,
+      "observed_labels": {
+        "safe": 664,
+        "phishing": 731
+      },
+      "use": "Blind external evaluation only; never training or model selection."
+    }
+  ]
+}

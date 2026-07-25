@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="520" viewBox="0 0 1120 520" role="img" aria-labelledby="title desc">
+<title id="title">Untouched test metrics by source dataset</title>
+<desc id="desc">Accuracy, macro F1, phishing precision, and phishing recall for each source.</desc>
+<style>text{font-family:Segoe UI,Arial,sans-serif;fill:#25231f}.title{font-size:24px;font-weight:700}.subtitle{font-size:13px;fill:#6d675d}.axis{font-size:12px;fill:#6d675d}.label{font-size:12px;font-weight:600}.grid{stroke:#d2c7b6;stroke-width:1}.frame{fill:#fffaf0;stroke:#bdb19f}</style>
+<rect width="1120" height="520" fill="#f5efe3"/>
+<text class="title" x="48" y="44">Untouched test metrics by dataset</text>
+<text class="subtitle" x="48" y="69">Training run: 25 Jul 2026, 10:13:18 UTC · horizontal scale starts at 75%</text>
+<line class="grid" x1="160.0" y1="100" x2="160.0" y2="420"/>
+<text class="axis" x="160.0" y="90" text-anchor="middle">75%</text>
+<line class="grid" x1="312.0" y1="100" x2="312.0" y2="420"/>
+<text class="axis" x="312.0" y="90" text-anchor="middle">80%</text>
+<line class="grid" x1="464.0" y1="100" x2="464.0" y2="420"/>
+<text class="axis" x="464.0" y="90" text-anchor="middle">85%</text>
+<line class="grid" x1="616.0" y1="100" x2="616.0" y2="420"/>
+<text class="axis" x="616.0" y="90" text-anchor="middle">90%</text>
+<line class="grid" x1="768.0" y1="100" x2="768.0" y2="420"/>
+<text class="axis" x="768.0" y="90" text-anchor="middle">95%</text>
+<line class="grid" x1="920.0" y1="100" x2="920.0" y2="420"/>
+<text class="axis" x="920.0" y="90" text-anchor="middle">100%</text>
+<text class="label" x="144" y="156" text-anchor="end">CEAS 2008</text>
+<rect x="160" y="120" width="752.7" height="18" rx="3" fill="#c77b18"><title>Accuracy: 99.7605%</title></rect>
+<text class="axis" x="919.7" y="134">99.76%</text>
+<rect x="160" y="147" width="752.6" height="18" rx="3" fill="#a2472f"><title>Macro F1: 99.7573%</title></rect>
+<text class="axis" x="919.6" y="161">99.76%</text>
+<rect x="160" y="174" width="747.9" height="18" rx="3" fill="#87500d"><title>Phishing precision: 99.6017%</title></rect>
+<text class="axis" x="914.9" y="188">99.60%</text>
+<rect x="160" y="201" width="759.1" height="18" rx="3" fill="#51623d"><title>Phishing recall: 99.9692%</title></rect>
+<text class="axis" x="926.1" y="215">99.97%</text>
+<text class="label" x="144" y="311" text-anchor="end">Phishing Email</text>
+<rect x="160" y="275" width="721.8" height="18" rx="3" fill="#c77b18"><title>Accuracy: 98.7429%</title></rect>
+<text class="axis" x="888.8" y="289">98.74%</text>
+<rect x="160" y="302" width="719.2" height="18" rx="3" fill="#a2472f"><title>Macro F1: 98.6575%</title></rect>
+<text class="axis" x="886.2" y="316">98.66%</text>
+<rect x="160" y="329" width="701.3" height="18" rx="3" fill="#87500d"><title>Phishing precision: 98.0691%</title></rect>
+<text class="axis" x="868.3" y="343">98.07%</text>
+<rect x="160" y="356" width="716.5" height="18" rx="3" fill="#51623d"><title>Phishing recall: 98.5700%</title></rect>
+<text class="axis" x="883.5" y="370">98.57%</text>
+<rect x="145" y="465" width="14" height="14" rx="2" fill="#c77b18"/>
+<text class="axis" x="165" y="477">Accuracy</text>
+<rect x="380" y="465" width="14" height="14" rx="2" fill="#a2472f"/>
+<text class="axis" x="400" y="477">Macro F1</text>
+<rect x="615" y="465" width="14" height="14" rx="2" fill="#87500d"/>
+<text class="axis" x="635" y="477">Phishing precision</text>
+<rect x="850" y="465" width="14" height="14" rx="2" fill="#51623d"/>
+<text class="axis" x="870" y="477">Phishing recall</text>
+</svg>

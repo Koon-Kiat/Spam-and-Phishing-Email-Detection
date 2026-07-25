@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Email risk review</title>
+  <link rel="icon" href="{{ url_for('favicon') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+  <script src="{{ url_for('static', filename='index.js') }}" defer></script>
+</head>
+<body data-max-file-bytes="{{ max_request_bytes }}">
+  <main class="page-shell">
+    <header class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Email risk review</p>
+        <h1>Pause. Inspect. Then decide.</h1>
+        <p class="intro">
+          Review pasted content or an original RFC 822 <code>.eml</code> file.
+          The model provides an advisory score, not an automatic blocking decision.
+        </p>
+      </div>
+      <div id="health" class="service-block" role="status" aria-live="polite">
+        <span class="service-label">Model service</span>
+        <strong id="health-status">Checking availability</strong>
+        <span id="health-version">Version pending</span>
+      </div>
+    </header>
+
+    <section class="analyzer" aria-labelledby="analyzer-heading">
+      <div class="section-heading">
+        <div>
+          <p class="section-kicker">New review</p>
+          <h2 id="analyzer-heading">Provide one source</h2>
+        </div>
+        <button id="clear-button" class="button button-secondary" type="button">
+          Clear all
+        </button>
+      </div>
+
+      <form id="prediction-form" novalidate>
+        <section id="text-option" class="input-option text-option" aria-labelledby="paste-heading">
+          <div class="option-heading">
+            <span class="option-number" aria-hidden="true">1</span>
+            <div>
+              <h3 id="paste-heading">Paste the email</h3>
+              <p>Use the subject and message body as they appeared.</p>
+            </div>
+            <span id="text-source-state" class="source-state">Ready to use</span>
+          </div>
+
+          <label for="subject">Subject <span>optional</span></label>
+          <input
+            id="subject"
+            name="subject"
+            type="text"
+            autocomplete="off"
+            placeholder="Example: Account verification required"
+          >
+
+          <label for="email-text">Email body</label>
+          <textarea
+            id="email-text"
+            name="text"
+            rows="10"
+            aria-describedby="text-help text-error"
+            placeholder="Paste the email body here"
+          ></textarea>
+          <p id="text-help" class="field-help">Formatting can be plain text or copied HTML content.</p>
+          <p id="text-error" class="field-error" role="alert" hidden></p>
+        </section>
+
+        <div class="or-divider" aria-label="or"><span>or</span></div>
+
+        <section id="file-option" class="input-option file-option" aria-labelledby="upload-heading">
+          <div class="option-heading">
+            <span class="option-number" aria-hidden="true">2</span>
+            <div>
+              <h3 id="upload-heading">Upload the original email</h3>
+              <p>An EML file becomes the active source while selected.</p>
+            </div>
+            <span id="file-source-state" class="source-state">No file selected</span>
+          </div>
+
+          <div
+            id="drop-zone"
+            class="drop-zone"
+            role="button"
+            tabindex="0"
+            aria-describedby="file-help file-error"
+            aria-label="Drop an EML file here or choose a file"
+          >
+            <svg class="upload-icon" viewBox="0 0 48 48" aria-hidden="true">
+              <path d="M24 31V10m0 0-8 8m8-8 8 8"></path>
+              <path d="M11 28v8a4 4 0 0 0 4 4h18a4 4 0 0 0 4-4v-8"></path>
+            </svg>
+            <div class="drop-copy">
+              <h4>Drop an <code>.eml</code> file here</h4>
+              <p>or select one from your computer</p>
+            </div>
+            <label class="file-button" for="eml-file">Choose EML file</label>
+            <input
+              id="eml-file"
+              name="eml-file"
+              type="file"
+              accept=".eml,message/rfc822"
+            >
+            <div id="file-summary" class="file-summary" hidden>
+              <div>
+                <span class="active-label">Active source</span>
+                <strong id="file-name"></strong>
+                <span id="file-size"></span>
+              </div>
+              <button id="remove-file" class="remove-file" type="button">Remove</button>
+            </div>
+          </div>
+          <p id="file-help" class="field-help">
+            Maximum request size: {{ "%.1f"|format(max_request_bytes / 1048576) }} MB.
+            Pasted text stays saved but is not sent while a file is active.
+          </p>
+          <p id="file-error" class="field-error" role="alert" hidden></p>
+        </section>
+
+        <button id="submit-button" class="button button-primary" type="submit">
+          <span id="submit-label">Review email</span>
+          <span aria-hidden="true">Continue</span>
+        </button>
+      </form>
+    </section>
+
+    <section id="result" class="result" aria-live="polite" aria-atomic="true" hidden>
+      <div class="result-heading">
+        <div>
+          <p class="section-kicker">Risk summary</p>
+          <h2 id="result-label"></h2>
+        </div>
+        <strong id="result-decision" class="result-decision"></strong>
+      </div>
+
+      <div class="risk-scale" aria-label="Phishing probability and decision threshold">
+        <div class="risk-scale-labels">
+          <span>Lower risk</span>
+          <strong id="result-probability"></strong>
+          <span>Higher risk</span>
+        </div>
+        <div class="risk-track">
+          <span id="risk-fill" class="risk-fill"></span>
+          <span id="threshold-marker" class="threshold-marker">
+            <span id="threshold-label"></span>
+          </span>
+        </div>
+      </div>
+
+      <dl>
+        <div>
+          <dt>Classification</dt>
+          <dd id="result-classification"></dd>
+        </div>
+        <div>
+          <dt>Decision threshold</dt>
+          <dd id="result-threshold"></dd>
+        </div>
+        <div>
+          <dt>Model version</dt>
+          <dd id="result-version"></dd>
+        </div>
+      </dl>
+
+      <div class="guidance">
+        <h3>Before you act</h3>
+        <ul>
+          <li>Verify unusual requests through a separate, trusted channel.</li>
+          <li>Open the known website directly instead of following message links.</li>
+          <li>Do not share credentials, payment details, or one-time codes by email.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="request-error" class="request-error" role="alert" hidden></section>
+  </main>
+</body>
+</html>

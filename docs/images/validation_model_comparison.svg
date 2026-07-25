@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1150" height="590" viewBox="0 0 1150 590" role="img" aria-labelledby="title desc">
+<title id="title">Validation model comparison</title>
+<desc id="desc">Accuracy, macro F1, and phishing recall for every benchmark candidate.</desc>
+<style>text{font-family:Segoe UI,Arial,sans-serif;fill:#25231f}.title{font-size:24px;font-weight:700}.subtitle{font-size:13px;fill:#6d675d}.axis{font-size:12px;fill:#6d675d}.label{font-size:12px;font-weight:600}.grid{stroke:#d2c7b6;stroke-width:1}.frame{fill:#fffaf0;stroke:#bdb19f}</style>
+<rect width="1150" height="590" fill="#f5efe3"/>
+<text class="title" x="48" y="44">Validation model comparison</text>
+<text class="subtitle" x="48" y="69">Training run: 25 Jul 2026, 10:13:18 UTC · validation data only</text>
+<line class="grid" x1="210.0" y1="105" x2="210.0" y2="516"/>
+<text class="axis" x="210.0" y="96" text-anchor="middle">0%</text>
+<line class="grid" x1="360.0" y1="105" x2="360.0" y2="516"/>
+<text class="axis" x="360.0" y="96" text-anchor="middle">20%</text>
+<line class="grid" x1="510.0" y1="105" x2="510.0" y2="516"/>
+<text class="axis" x="510.0" y="96" text-anchor="middle">40%</text>
+<line class="grid" x1="660.0" y1="105" x2="660.0" y2="516"/>
+<text class="axis" x="660.0" y="96" text-anchor="middle">60%</text>
+<line class="grid" x1="810.0" y1="105" x2="810.0" y2="516"/>
+<text class="axis" x="810.0" y="96" text-anchor="middle">80%</text>
+<line class="grid" x1="960.0" y1="105" x2="960.0" y2="516"/>
+<text class="axis" x="960.0" y="96" text-anchor="middle">100%</text>
+<text class="label" x="196" y="147" text-anchor="end">Word/char TF-IDF + SVM</text>
+<rect x="210" y="120" width="745.9" height="12" rx="3" fill="#c77b18"><title>Accuracy: 99.4570%</title></rect>
+<text class="axis" x="970" y="130">99.46%</text>
+<rect x="210" y="137" width="745.9" height="12" rx="3" fill="#a2472f"><title>Macro F1: 99.4570%</title></rect>
+<text class="axis" x="970" y="147">99.46%</text>
+<rect x="210" y="154" width="745.7" height="12" rx="3" fill="#51623d"><title>Phishing recall: 99.4330%</title></rect>
+<text class="axis" x="970" y="164">99.43%</text>
+<text class="label" x="196" y="215" text-anchor="end">DistilBERT</text>
+<rect x="210" y="188" width="745.5" height="12" rx="3" fill="#c77b18"><title>Accuracy: 99.3979%</title></rect>
+<text class="axis" x="970" y="198">99.40%</text>
+<rect x="210" y="205" width="745.5" height="12" rx="3" fill="#a2472f"><title>Macro F1: 99.3979%</title></rect>
+<text class="axis" x="970" y="215">99.40%</text>
+<rect x="210" y="222" width="744.5" height="12" rx="3" fill="#51623d"><title>Phishing recall: 99.2677%</title></rect>
+<text class="axis" x="970" y="232">99.27%</text>
+<text class="label" x="196" y="283" text-anchor="end">Word/char TF-IDF + logistic</text>
+<rect x="210" y="256" width="744.7" height="12" rx="3" fill="#c77b18"><title>Accuracy: 99.2917%</title></rect>
+<text class="axis" x="970" y="266">99.29%</text>
+<rect x="210" y="273" width="744.7" height="12" rx="3" fill="#a2472f"><title>Macro F1: 99.2917%</title></rect>
+<text class="axis" x="970" y="283">99.29%</text>
+<rect x="210" y="290" width="744.9" height="12" rx="3" fill="#51623d"><title>Phishing recall: 99.3149%</title></rect>
+<text class="axis" x="970" y="300">99.31%</text>
+<text class="label" x="196" y="351" text-anchor="end">Word TF-IDF + logistic</text>
+<rect x="210" y="324" width="742.5" height="12" rx="3" fill="#c77b18"><title>Accuracy: 98.9966%</title></rect>
+<text class="axis" x="970" y="334">99.00%</text>
+<rect x="210" y="341" width="742.5" height="12" rx="3" fill="#a2472f"><title>Macro F1: 98.9966%</title></rect>
+<text class="axis" x="970" y="351">99.00%</text>
+<rect x="210" y="358" width="742.7" height="12" rx="3" fill="#51623d"><title>Phishing recall: 99.0314%</title></rect>
+<text class="axis" x="970" y="368">99.03%</text>
+<text class="label" x="196" y="419" text-anchor="end">Word/char TF-IDF + NB</text>
+<rect x="210" y="392" width="730.2" height="12" rx="3" fill="#c77b18"><title>Accuracy: 97.3557%</title></rect>
+<text class="axis" x="970" y="402">97.36%</text>
+<rect x="210" y="409" width="730.2" height="12" rx="3" fill="#a2472f"><title>Macro F1: 97.3546%</title></rect>
+<text class="axis" x="970" y="419">97.35%</text>
+<rect x="210" y="426" width="715.3" height="12" rx="3" fill="#51623d"><title>Phishing recall: 95.3697%</title></rect>
+<text class="axis" x="970" y="436">95.37%</text>
+<text class="label" x="196" y="487" text-anchor="end">Majority baseline</text>
+<rect x="210" y="460" width="375.2" height="12" rx="3" fill="#c77b18"><title>Accuracy: 50.0295%</title></rect>
+<text class="axis" x="970" y="470">50.03%</text>
+<rect x="210" y="477" width="250.1" height="12" rx="3" fill="#a2472f"><title>Macro F1: 33.3464%</title></rect>
+<text class="axis" x="970" y="487">33.35%</text>
+<rect x="210" y="494" width="0.0" height="12" rx="3" fill="#51623d"><title>Phishing recall: 0.0000%</title></rect>
+<text class="axis" x="970" y="504">0.00%</text>
+<rect x="585" y="38" width="14" height="14" rx="2" fill="#c77b18"/>
+<text class="axis" x="605" y="50">Accuracy</text>
+<rect x="735" y="38" width="14" height="14" rx="2" fill="#a2472f"/>
+<text class="axis" x="755" y="50">Macro F1</text>
+<rect x="885" y="38" width="14" height="14" rx="2" fill="#51623d"/>
+<text class="axis" x="905" y="50">Phishing recall</text>
+</svg>

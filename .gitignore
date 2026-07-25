@@ -1,0 +1,60 @@
+# Data files
+*.pkl
+*.csv
+*.eml
+*.npz
+data/external/
+data/raw/
+
+# Environment and local configuration files
+.env
+.env.*
+!.env.example
+config/*.local.json
+config.local.json
+*.key
+*.pem
+env/
+venv/
+ENV/
+.venv/
+.cache/
+.tools/
+
+# Log files
+*.log
+reports/
+artifacts/
+release/
+
+# Compiled files
+*.pyc
+*.pyo
+*.pyd
+
+# Python cache
+__pycache__/
+
+# Project directories
+backup/
+trash/
+others/
+downloads/
+
+# Python build files
+build/
+develop-eggs/
+dist/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Specific scripts
+email_generator.py
+shap_analysis.py

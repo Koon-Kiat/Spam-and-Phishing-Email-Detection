@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14.6"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check src tests main.py server/flask_app.py
+
+      - name: Test
+        run: python -m pytest
+
+      - name: Check dependency consistency
+        run: |
+          python -m pip check
+          pip-audit -r requirements.lock --no-deps
+
+      - name: Compile and inspect CLI
+        run: |
+          python -m compileall -q src server main.py
+          python -m spamandphishingdetection --help
+
+      - name: Reject raw data and generated release state
+        shell: bash
+        run: |
+          tracked="$(git ls-files '*.csv' '*.eml' '*.log' 'artifacts/**' 'reports/**' 'release/**')"
+          if [ -n "$tracked" ]; then
+            echo "Forbidden generated or raw files are tracked:"
+            echo "$tracked"
+            exit 1
+          fi

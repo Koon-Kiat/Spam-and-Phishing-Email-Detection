@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1284" height="620" viewBox="0 0 1284 620" role="img" aria-labelledby="title desc">
+<title id="title">Selected-model learning curves</title>
+<desc id="desc">Training and validation accuracy and macro F1 at increasing training set sizes.</desc>
+<style>text{font-family:Segoe UI,Arial,sans-serif;fill:#25231f}.title{font-size:24px;font-weight:700}.subtitle{font-size:13px;fill:#6d675d}.axis{font-size:12px;fill:#6d675d}.label{font-size:12px;font-weight:600}.grid{stroke:#d2c7b6;stroke-width:1}.frame{fill:#fffaf0;stroke:#bdb19f}</style>
+<rect width="1284" height="620" fill="#f5efe3"/>
+<text class="title" x="48" y="44">Selected-model learning curves</text>
+<text class="subtitle" x="48" y="69">Training run: 25 Jul 2026, 10:13:18 UTC · fixed promoted threshold</text>
+<rect class="frame" x="42" y="96" width="590" height="450" rx="8"/>
+<text class="label" x="60" y="123">Accuracy</text>
+<line class="grid" x1="100" y1="472.0" x2="612" y2="472.0"/>
+<text class="axis" x="92" y="476.0" text-anchor="end">97.5%</text>
+<line class="grid" x1="100" y1="405.2" x2="612" y2="405.2"/>
+<text class="axis" x="92" y="409.2" text-anchor="end">98.0%</text>
+<line class="grid" x1="100" y1="338.4" x2="612" y2="338.4"/>
+<text class="axis" x="92" y="342.4" text-anchor="end">98.5%</text>
+<line class="grid" x1="100" y1="271.6" x2="612" y2="271.6"/>
+<text class="axis" x="92" y="275.6" text-anchor="end">99.0%</text>
+<line class="grid" x1="100" y1="204.8" x2="612" y2="204.8"/>
+<text class="axis" x="92" y="208.8" text-anchor="end">99.5%</text>
+<line class="grid" x1="100" y1="138.0" x2="612" y2="138.0"/>
+<text class="axis" x="92" y="142.0" text-anchor="end">100.0%</text>
+<line class="grid" x1="100.0" y1="138" x2="100.0" y2="472"/>
+<text class="axis" x="100.0" y="494" text-anchor="middle">0</text>
+<line class="grid" x1="228.0" y1="138" x2="228.0" y2="472"/>
+<text class="axis" x="228.0" y="494" text-anchor="middle">10,000</text>
+<line class="grid" x1="356.0" y1="138" x2="356.0" y2="472"/>
+<text class="axis" x="356.0" y="494" text-anchor="middle">20,000</text>
+<line class="grid" x1="484.0" y1="138" x2="484.0" y2="472"/>
+<text class="axis" x="484.0" y="494" text-anchor="middle">30,000</text>
+<line class="grid" x1="612.0" y1="138" x2="612.0" y2="472"/>
+<text class="axis" x="612.0" y="494" text-anchor="middle">40,000</text>
+<polyline points="125.3,138.0 150.6,138.0 226.5,138.0 353.0,138.0 479.5,138.9 606.0,138.7" fill="none" stroke="#51623d" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="125.3" cy="138.0" r="4" fill="#51623d"><title>Training at 1,976 rows: 100.000%</title></circle>
+<circle cx="150.6" cy="138.0" r="4" fill="#51623d"><title>Training at 3,953 rows: 100.000%</title></circle>
+<circle cx="226.5" cy="138.0" r="4" fill="#51623d"><title>Training at 9,883 rows: 100.000%</title></circle>
+<circle cx="353.0" cy="138.0" r="4" fill="#51623d"><title>Training at 19,767 rows: 100.000%</title></circle>
+<circle cx="479.5" cy="138.9" r="4" fill="#51623d"><title>Training at 29,651 rows: 99.993%</title></circle>
+<circle cx="606.0" cy="138.7" r="4" fill="#51623d"><title>Training at 39,535 rows: 99.995%</title></circle>
+<polyline points="125.3,399.8 150.6,336.7 226.5,289.4 353.0,242.1 479.5,231.1 606.0,210.5" fill="none" stroke="#a2472f" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="125.3" cy="399.8" r="4" fill="#a2472f"><title>Validation at 1,976 rows: 98.040%</title></circle>
+<circle cx="150.6" cy="336.7" r="4" fill="#a2472f"><title>Validation at 3,953 rows: 98.513%</title></circle>
+<circle cx="226.5" cy="289.4" r="4" fill="#a2472f"><title>Validation at 9,883 rows: 98.867%</title></circle>
+<circle cx="353.0" cy="242.1" r="4" fill="#a2472f"><title>Validation at 19,767 rows: 99.221%</title></circle>
+<circle cx="479.5" cy="231.1" r="4" fill="#a2472f"><title>Validation at 29,651 rows: 99.304%</title></circle>
+<circle cx="606.0" cy="210.5" r="4" fill="#a2472f"><title>Validation at 39,535 rows: 99.457%</title></circle>
+<line x1="412" y1="120" x2="438" y2="120" stroke="#51623d" stroke-width="3"/>
+<text class="axis" x="444" y="124">Training</text>
+<line x1="514" y1="120" x2="540" y2="120" stroke="#a2472f" stroke-width="3"/>
+<text class="axis" x="546" y="124">Validation</text>
+<text class="axis" x="356.0" y="529" text-anchor="middle">Training rows</text>
+<rect class="frame" x="652" y="96" width="590" height="450" rx="8"/>
+<text class="label" x="670" y="123">Macro F1</text>
+<line class="grid" x1="710" y1="472.0" x2="1222" y2="472.0"/>
+<text class="axis" x="702" y="476.0" text-anchor="end">97.5%</text>
+<line class="grid" x1="710" y1="405.2" x2="1222" y2="405.2"/>
+<text class="axis" x="702" y="409.2" text-anchor="end">98.0%</text>
+<line class="grid" x1="710" y1="338.4" x2="1222" y2="338.4"/>
+<text class="axis" x="702" y="342.4" text-anchor="end">98.5%</text>
+<line class="grid" x1="710" y1="271.6" x2="1222" y2="271.6"/>
+<text class="axis" x="702" y="275.6" text-anchor="end">99.0%</text>
+<line class="grid" x1="710" y1="204.8" x2="1222" y2="204.8"/>
+<text class="axis" x="702" y="208.8" text-anchor="end">99.5%</text>
+<line class="grid" x1="710" y1="138.0" x2="1222" y2="138.0"/>
+<text class="axis" x="702" y="142.0" text-anchor="end">100.0%</text>
+<line class="grid" x1="710.0" y1="138" x2="710.0" y2="472"/>
+<text class="axis" x="710.0" y="494" text-anchor="middle">0</text>
+<line class="grid" x1="838.0" y1="138" x2="838.0" y2="472"/>
+<text class="axis" x="838.0" y="494" text-anchor="middle">10,000</text>
+<line class="grid" x1="966.0" y1="138" x2="966.0" y2="472"/>
+<text class="axis" x="966.0" y="494" text-anchor="middle">20,000</text>
+<line class="grid" x1="1094.0" y1="138" x2="1094.0" y2="472"/>
+<text class="axis" x="1094.0" y="494" text-anchor="middle">30,000</text>
+<line class="grid" x1="1222.0" y1="138" x2="1222.0" y2="472"/>
+<text class="axis" x="1222.0" y="494" text-anchor="middle">40,000</text>
+<polyline points="735.3,138.0 760.6,138.0 836.5,138.0 963.0,138.0 1089.5,138.9 1216.0,138.7" fill="none" stroke="#51623d" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="735.3" cy="138.0" r="4" fill="#51623d"><title>Training at 1,976 rows: 100.000%</title></circle>
+<circle cx="760.6" cy="138.0" r="4" fill="#51623d"><title>Training at 3,953 rows: 100.000%</title></circle>
+<circle cx="836.5" cy="138.0" r="4" fill="#51623d"><title>Training at 9,883 rows: 100.000%</title></circle>
+<circle cx="963.0" cy="138.0" r="4" fill="#51623d"><title>Training at 19,767 rows: 100.000%</title></circle>
+<circle cx="1089.5" cy="138.9" r="4" fill="#51623d"><title>Training at 29,651 rows: 99.993%</title></circle>
+<circle cx="1216.0" cy="138.7" r="4" fill="#51623d"><title>Training at 39,535 rows: 99.995%</title></circle>
+<polyline points="735.3,399.8 760.6,336.7 836.5,289.4 963.0,242.1 1089.5,231.1 1216.0,210.5" fill="none" stroke="#a2472f" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="735.3" cy="399.8" r="4" fill="#a2472f"><title>Validation at 1,976 rows: 98.040%</title></circle>
+<circle cx="760.6" cy="336.7" r="4" fill="#a2472f"><title>Validation at 3,953 rows: 98.513%</title></circle>
+<circle cx="836.5" cy="289.4" r="4" fill="#a2472f"><title>Validation at 9,883 rows: 98.867%</title></circle>
+<circle cx="963.0" cy="242.1" r="4" fill="#a2472f"><title>Validation at 19,767 rows: 99.221%</title></circle>
+<circle cx="1089.5" cy="231.1" r="4" fill="#a2472f"><title>Validation at 29,651 rows: 99.304%</title></circle>
+<circle cx="1216.0" cy="210.5" r="4" fill="#a2472f"><title>Validation at 39,535 rows: 99.457%</title></circle>
+<line x1="1022" y1="120" x2="1048" y2="120" stroke="#51623d" stroke-width="3"/>
+<text class="axis" x="1054" y="124">Training</text>
+<line x1="1124" y1="120" x2="1150" y2="120" stroke="#a2472f" stroke-width="3"/>
+<text class="axis" x="1156" y="124">Validation</text>
+<text class="axis" x="966.0" y="529" text-anchor="middle">Training rows</text>
+<text class="subtitle" x="642" y="590" text-anchor="middle">A shrinking training-validation gap indicates improving generalization as training data increases.</text>
+</svg>
