@@ -68,14 +68,18 @@ remain untracked; their hashes are recorded in the model bundle.
 - [x] `SECURITY.md`, the model card, dataset notices, monitoring, retraining, and
       rollback instructions are present.
 - [x] CI runs lint, tests, dependency checks, and raw-data/release-source guards.
-- [x] Private GitHub CI passed for the release commit
-      ([run 30156122468](https://github.com/Koon-Kiat/Spam-And-Phishing-Detection-Using-Machine-Learning/actions/runs/30156122468)).
-- [ ] GitHub `v1.0.0` release and checksum-verified model asset were published.
-- [ ] Private vulnerability reporting was enabled before public visibility.
-- [ ] Repository visibility was changed from private to public only after the prior gates.
-
-The final four entries are intentionally updated only after GitHub confirms each remote
-operation.
+- [x] Private GitHub CI passed for the final pre-public source
+      ([run 30156164393](https://github.com/Koon-Kiat/Spam-And-Phishing-Detection-Using-Machine-Learning/actions/runs/30156164393)).
+- [x] The GitHub [`v1.0.0` release](https://github.com/Koon-Kiat/Spam-And-Phishing-Detection-Using-Machine-Learning/releases/tag/v1.0.0)
+      and model asset were published while private; a fresh download matched SHA-256
+      `497d12daca39312e470d6e5e1d70a74a6f032439951a1fcfe4a26a603c1f8220`.
+- [x] Ordering exception documented: GitHub limits private vulnerability reporting to
+      public repositories. The authenticated private-repository attempt returned `404`;
+      the feature was enabled immediately after visibility changed and verified as
+      `enabled: true`. See
+      [GitHub's eligibility documentation](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configure-for-a-repository).
+- [x] Repository visibility changed from private to public only after private CI,
+      release publication, and downloaded-asset checksum verification passed.
 
 ## Local acceptance commands
 
