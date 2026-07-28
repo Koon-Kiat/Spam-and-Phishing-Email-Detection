@@ -8,7 +8,7 @@ Security fixes are provided for the latest GitHub release.
 
 Use GitHub's private vulnerability reporting on the repository Security tab:
 
-<https://github.com/Koon-Kiat/Spam-And-Phishing-Detection-Using-Machine-Learning/security/advisories/new>
+<https://github.com/Koon-Kiat/Spam-and-Phishing-Email-Detection/security/advisories/new>
 
 Do not disclose exploitable details in a public issue. Include the affected version,
 reproduction steps, impact, and any suggested mitigation. The project will acknowledge
