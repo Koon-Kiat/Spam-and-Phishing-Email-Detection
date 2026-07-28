@@ -69,8 +69,8 @@ remain untracked; their hashes are recorded in the model bundle.
       rollback instructions are present.
 - [x] CI runs lint, tests, dependency checks, and raw-data/release-source guards.
 - [x] Private GitHub CI passed for the final pre-public source
-      ([run 30156164393](https://github.com/Koon-Kiat/Spam-And-Phishing-Detection-Using-Machine-Learning/actions/runs/30156164393)).
-- [x] The GitHub [`v1.0.0` release](https://github.com/Koon-Kiat/Spam-And-Phishing-Detection-Using-Machine-Learning/releases/tag/v1.0.0)
+      ([run 30156164393](https://github.com/Koon-Kiat/Spam-and-Phishing-Email-Detection/actions/runs/30156164393)).
+- [x] The GitHub [`v1.0.0` release](https://github.com/Koon-Kiat/Spam-and-Phishing-Email-Detection/releases/tag/v1.0.0)
       and model asset were published while private; a fresh download matched SHA-256
       `497d12daca39312e470d6e5e1d70a74a6f032439951a1fcfe4a26a603c1f8220`.
 - [x] Ordering exception documented: GitHub limits private vulnerability reporting to

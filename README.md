@@ -11,7 +11,7 @@ probabilities, external validation, privacy-safe monitoring, and a browser revie
 The model is advisory: it is not suitable for automatic blocking without validation on
 the deployment population and human review of errors.
 
-Repository: <https://github.com/Koon-Kiat/Spam-And-Phishing-Detection-Using-Machine-Learning>
+Repository: <https://github.com/Koon-Kiat/Spam-and-Phishing-Email-Detection>
 
 ## What is released
 
