@@ -1,5 +1,3 @@
-# v1.0.0 — Leakage-aware public research release
-
 This initial release provides the source, browser review interface, reproducible
 training/generalization workflow, and a separately licensed model bundle.
 
@@ -15,6 +13,14 @@ training/generalization workflow, and a separately licensed model bundle.
 
 The external result demonstrates severe domain and calibration drift. This model is an
 advisory research baseline and is not suitable as an automatic email blocker.
+
+## Why SpaPhish was used
+
+The two training sources are English-heavy, so SpaPhish v5 provides a deliberately
+independent Spanish-native test of language, time, and campaign drift. It was evaluated
+only after the model and threshold were locked; none of its rows or psychological
+annotations were used for training or model selection. Its weak result is retained to
+show the model's limited transfer beyond familiar sources.
 
 ## Release boundaries
 

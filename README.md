@@ -96,8 +96,7 @@ Stable endpoints:
 - `POST /api/v1/predict`
 - `GET /health`
 
-Raw RFC 822 requests use `Content-Type: message/rfc822`. The removed Outlook add-in
-routes `/evaluateEmail`, `/taskpane.html`, and `/commands.html` return `404`.
+Raw RFC 822 requests use `Content-Type: message/rfc822`.
 
 ## Generalization controls
 
