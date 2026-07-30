@@ -148,7 +148,7 @@ def test_eml_extraction_prefers_text_and_supports_html() -> None:
     assert "<b>" not in extracted
 
 
-def test_api_json_eml_office_removal_and_health(
+def test_api_json_eml_deprecated_routes_and_health(
     trained_state: tuple[ProjectConfig, Path],
 ) -> None:
     config, artifact = trained_state
@@ -241,6 +241,8 @@ def test_browser_test_page_and_diagnostic_charts(
     for chart in diagnostics.charts:
         content = chart.read_text(encoding="utf-8")
         assert content.startswith("<svg")
+        assert 'role="img"' in content
+        assert "Matplotlib 3.11.1" in content
         assert "Training run:" in content
         assert diagnostics.run_id not in content
         assert "#2563eb" not in content

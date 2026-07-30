@@ -58,6 +58,25 @@ python -m spamandphishingdetection fetch-data --accept-licenses --external
 SpaPhish is used only for blind external evaluation after model, threshold, and
 calibration are locked. It is never added to training during this release.
 
+### Why use a Spanish dataset?
+
+The two training collections are largely English-language and come from familiar email
+corpora. Evaluating only on held-out rows from those same sources would not reveal how
+the classifier behaves when language, vocabulary, sender patterns, time period, and
+social-engineering style all change together.
+
+SpaPhish was chosen as a deliberate out-of-domain stress test because it provides
+Spanish-native messages rather than translations or synthetic examples, binary labels
+for every evaluated row, message dates, a reusable versioned DOI, and a permissive
+license. Its subject, body, date, attachment count, and binary label support the same
+post-lock error, drift, and calibration checks used elsewhere in this project. The
+psychological annotations are not model features.
+
+This choice is intended to expose cross-language failure, not to imply that SpaPhish
+represents all Spanish email or that Spanish data was used to improve this release's
+model. The corpus is evaluated once after selection, and the weak result is retained as
+evidence of the model's limited transfer beyond its English-heavy training sources.
+
 ## Privacy review and publication decision
 
 Automated scans of the training CSVs detected thousands of rows containing address-,

@@ -135,8 +135,13 @@ Inference remains compatible with schema 1 artifacts.
 
 ### Release diagnostics
 
-The checked-in SVGs are generated from run `20260725T101318Z`; the JSON and CSV reports
-remain untracked because they contain detailed generated run state.
+The checked-in SVGs are rendered with Matplotlib from run `20260725T101318Z`; the JSON
+and CSV reports remain untracked because they contain detailed generated run state.
+Regenerate the figures from the recorded artifact and report data with:
+
+```powershell
+python -m spamandphishingdetection report --artifact 20260725T101318Z
+```
 
 ![Selected-model learning curves](images/learning_curve.svg)
 
@@ -155,6 +160,13 @@ adapter verifies:
 - 664 legitimate and 731 phishing labels;
 - official file SHA-256;
 - parseable canonical fields.
+
+It is used because a Spanish-native, independently versioned corpus creates a meaningful
+cross-language and cross-domain stress test for the English-heavy training sources. The
+goal is to measure transfer failure after model selection, not to tune on Spanish data
+or claim coverage of all Spanish email. Only the message fields, date, attachment count,
+and binary label are adapted for evaluation; psychological annotations are not model
+features.
 
 The locked model evaluates all rows at their observed prevalence. Reports include:
 
