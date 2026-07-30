@@ -182,6 +182,13 @@ def test_api_json_eml_deprecated_routes_and_health(
     assert client.post("/evaluateEmail", data=eml).status_code == 404
 
     assert client.post("/api/v1/predict", json={"text": ""}).status_code == 400
+    invalid_json = client.post(
+        "/api/v1/predict",
+        data=b"[]",
+        content_type="application/json",
+    )
+    assert invalid_json.status_code == 400
+    assert invalid_json.get_json() == {"error": "Invalid email input"}
     assert (
         client.post(
             "/api/v1/predict",
@@ -196,10 +203,19 @@ def test_health_reports_missing_artifact(
     config_factory: Callable[..., ProjectConfig],
 ) -> None:
     config = config_factory()
-    response = create_app(config).test_client().get("/health")
+    client = create_app(config).test_client()
+    response = client.get("/health")
 
     assert response.status_code == 503
-    assert response.get_json()["model_loaded"] is False
+    assert response.get_json() == {
+        "status": "unavailable",
+        "model_loaded": False,
+        "error": "Prediction model is unavailable",
+    }
+
+    prediction = client.post("/api/v1/predict", json={"text": "hello"})
+    assert prediction.status_code == 503
+    assert prediction.get_json() == {"error": "Prediction model is unavailable"}
 
 
 def test_browser_test_page_and_diagnostic_charts(
