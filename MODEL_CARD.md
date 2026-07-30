@@ -27,6 +27,13 @@ SpaPhish v5.
 SpaPhish v5 is evaluated once after the model is locked. All 1,395 records and observed
 52.4% phishing prevalence are preserved.
 
+SpaPhish was selected to test cross-language and cross-domain transfer that the
+English-heavy familiar-source split cannot measure. It contains Spanish-native rather
+than translated or synthetic messages, has versioned provenance and complete binary
+labels, and supports time and attachment slices. It is external evidence only: its
+psychological annotations are not features, and no SpaPhish row influences training,
+model selection, threshold selection, or calibration.
+
 ## Measured release results
 
 Run `20260725T101318Z` selected the word/character TF-IDF linear SVM at threshold

@@ -1,8 +1,9 @@
-"""Generate reproducible model diagnostic tables and SVG charts."""
+"""Generate reproducible model diagnostic tables and Matplotlib SVG charts."""
 
 from __future__ import annotations
 
 import html
+import io
 import json
 import logging
 import math
@@ -12,8 +13,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import matplotlib as mpl
 import numpy as np
 import pandas as pd
+from matplotlib import colors as mpl_colors
+from matplotlib import ticker as mpl_ticker
+from matplotlib.axes import Axes
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.figure import Figure
 from sklearn.model_selection import train_test_split
 
 from .config import ProjectConfig
@@ -24,6 +31,34 @@ from .training import _calibration_folds, build_classical_candidate
 
 DEFAULT_LEARNING_FRACTIONS = (0.05, 0.10, 0.25, 0.50, 0.75, 1.00)
 LOGGER = logging.getLogger(__name__)
+
+_PLOT_STYLE = {
+    "font.family": "sans-serif",
+    "font.sans-serif": ["Segoe UI", "Arial", "DejaVu Sans"],
+    "font.size": 9.5,
+    "axes.edgecolor": "#B6B8B7",
+    "axes.labelcolor": "#313432",
+    "axes.linewidth": 0.8,
+    "axes.titlecolor": "#252725",
+    "axes.titlesize": 11,
+    "axes.titleweight": "semibold",
+    "axes.facecolor": "#FFFFFF",
+    "figure.facecolor": "#FFFFFF",
+    "grid.alpha": 0.8,
+    "grid.color": "#DCDDDB",
+    "grid.linewidth": 0.65,
+    "legend.frameon": False,
+    "text.color": "#252725",
+    "xtick.color": "#565A57",
+    "ytick.color": "#565A57",
+    "svg.fonttype": "none",
+}
+_COLORS = {
+    "primary": "#3D6258",
+    "accent": "#B65335",
+    "neutral": "#6B706D",
+    "guide": "#B9BCBA",
+}
 
 
 @dataclass(frozen=True)
@@ -131,188 +166,13 @@ def compute_learning_curve(
     return pd.DataFrame(rows)
 
 
-def _svg_document(
-    title: str,
-    description: str,
-    body: str,
-    *,
-    width: int,
-    height: int,
-) -> str:
-    return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
-        f'viewBox="0 0 {width} {height}" role="img" aria-labelledby="title desc">\n'
-        f"<title id=\"title\">{html.escape(title)}</title>\n"
-        f"<desc id=\"desc\">{html.escape(description)}</desc>\n"
-        "<style>"
-        "text{font-family:Segoe UI,Arial,sans-serif;fill:#25231f}"
-        ".title{font-size:24px;font-weight:700}.subtitle{font-size:13px;fill:#6d675d}"
-        ".axis{font-size:12px;fill:#6d675d}.label{font-size:12px;font-weight:600}"
-        ".grid{stroke:#d2c7b6;stroke-width:1}.frame{fill:#fffaf0;stroke:#bdb19f}"
-        "</style>\n"
-        f'<rect width="{width}" height="{height}" fill="#f5efe3"/>\n{body}\n</svg>\n'
-    )
-
-
-def _line_panel(
-    frame: pd.DataFrame,
-    *,
-    x: float,
-    y: float,
-    width: float,
-    height: float,
-    metric: str,
-    panel_title: str,
-) -> str:
-    train_values = frame[f"train_{metric}"].astype(float).tolist()
-    validation_values = frame[f"validation_{metric}"].astype(float).tolist()
-    all_values = train_values + validation_values
-    value_span = max(all_values) - min(all_values)
-    tick_step = 0.005 if value_span <= 0.03 else 0.01
-    y_min = max(
-        0.0,
-        math.floor((min(all_values) - tick_step / 2) / tick_step) * tick_step,
-    )
-    y_max = min(1.0, math.ceil(max(all_values) / tick_step) * tick_step)
-    if y_max <= y_min:
-        y_min = max(0.0, y_min - tick_step)
-        y_max = min(1.0, y_max + tick_step)
-    tick_count = int(round((y_max - y_min) / tick_step)) + 1
-
-    left = x + 58
-    top = y + 42
-    chart_width = width - 78
-    chart_height = height - 116
-    training_rows = frame["training_rows"].astype(int).tolist()
-    x_tick_step = 10_000
-    x_max = max(
-        x_tick_step,
-        math.ceil(max(training_rows) / x_tick_step) * x_tick_step,
-    )
-
-    def point(row_count: int, value: float) -> tuple[float, float]:
-        point_x = left + row_count / x_max * chart_width
-        point_y = top + (y_max - value) / (y_max - y_min) * chart_height
-        return point_x, point_y
-
-    parts = [
-        f'<rect class="frame" x="{x}" y="{y}" width="{width}" height="{height}" rx="8"/>',
-        f'<text class="label" x="{x + 18}" y="{y + 27}">{html.escape(panel_title)}</text>',
-    ]
-    for tick in range(tick_count):
-        value = y_min + tick_step * tick
-        tick_y = top + chart_height - (value - y_min) / (y_max - y_min) * chart_height
-        parts.append(
-            f'<line class="grid" x1="{left}" y1="{tick_y:.1f}" '
-            f'x2="{left + chart_width}" y2="{tick_y:.1f}"/>'
-        )
-        parts.append(
-            f'<text class="axis" x="{left - 8}" y="{tick_y + 4:.1f}" '
-            f'text-anchor="end">{value * 100:.1f}%</text>'
-        )
-    for row_count in range(0, x_max + x_tick_step, x_tick_step):
-        point_x = left + row_count / x_max * chart_width
-        parts.extend(
-            [
-                f'<line class="grid" x1="{point_x:.1f}" y1="{top}" '
-                f'x2="{point_x:.1f}" y2="{top + chart_height}"/>',
-                f'<text class="axis" x="{point_x:.1f}" y="{top + chart_height + 22}" '
-                f'text-anchor="middle">{row_count:,}</text>',
-            ]
-        )
-
-    series = (
-        ("Training", train_values, "#51623d"),
-        ("Validation", validation_values, "#a2472f"),
-    )
-    for label, values, color in series:
-        coordinates = [
-            point(row_count, value)
-            for row_count, value in zip(training_rows, values, strict=True)
-        ]
-        polyline = " ".join(f"{px:.1f},{py:.1f}" for px, py in coordinates)
-        parts.append(
-            f'<polyline points="{polyline}" fill="none" stroke="{color}" '
-            'stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>'
-        )
-        for (point_x, point_y), row_count, value in zip(
-            coordinates,
-            training_rows,
-            values,
-            strict=True,
-        ):
-            parts.append(
-                f'<circle cx="{point_x:.1f}" cy="{point_y:.1f}" r="4" '
-                f'fill="{color}"><title>{label} at {row_count:,} rows: '
-                f"{value * 100:.3f}%</title></circle>"
-            )
-    parts.extend(
-        [
-            f'<line x1="{x + width - 220}" y1="{y + 24}" '
-            f'x2="{x + width - 194}" y2="{y + 24}" '
-            'stroke="#51623d" stroke-width="3"/>',
-            f'<text class="axis" x="{x + width - 188}" y="{y + 28}">Training</text>',
-            f'<line x1="{x + width - 118}" y1="{y + 24}" '
-            f'x2="{x + width - 92}" y2="{y + 24}" '
-            'stroke="#a2472f" stroke-width="3"/>',
-            f'<text class="axis" x="{x + width - 86}" y="{y + 28}">Validation</text>',
-            f'<text class="axis" x="{left + chart_width / 2:.1f}" y="{y + height - 17}" '
-            'text-anchor="middle">Training rows</text>',
-        ]
-    )
-    return "\n".join(parts)
-
-
-def render_learning_curve(frame: pd.DataFrame, run_id: str) -> str:
-    body = [
-        '<text class="title" x="48" y="44">Selected-model learning curves</text>',
-        (
-            '<text class="subtitle" x="48" y="69">'
-            f"Training run: {html.escape(_display_run_time(run_id))} · "
-            "fixed promoted threshold"
-            "</text>"
-        ),
-        _line_panel(
-            frame,
-            x=42,
-            y=96,
-            width=590,
-            height=450,
-            metric="accuracy",
-            panel_title="Accuracy",
-        ),
-        _line_panel(
-            frame,
-            x=652,
-            y=96,
-            width=590,
-            height=450,
-            metric="macro_f1",
-            panel_title="Macro F1",
-        ),
-        (
-            '<text class="subtitle" x="642" y="590" text-anchor="middle">'
-            "A shrinking training-validation gap indicates improving generalization as "
-            "training data increases."
-            "</text>"
-        ),
-    ]
-    return _svg_document(
-        "Selected-model learning curves",
-        "Training and validation accuracy and macro F1 at increasing training set sizes.",
-        "\n".join(body),
-        width=1284,
-        height=620,
-    )
-
-
 def _display_name(name: str) -> str:
     names = {
         "majority": "Majority baseline",
-        "word_only_logistic": "Word TF-IDF + logistic",
-        "word_char_logistic": "Word/char TF-IDF + logistic",
-        "word_char_nb": "Word/char TF-IDF + NB",
-        "word_char_linear_svm": "Word/char TF-IDF + SVM",
+        "word_only_logistic": "Word logistic",
+        "word_char_logistic": "Word + character logistic",
+        "word_char_nb": "Word + character NB",
+        "word_char_linear_svm": "Word + character SVM",
         "distilbert": "DistilBERT",
     }
     return names.get(name, name.replace("_", " ").title())
@@ -331,178 +191,364 @@ def _display_run_time(run_id: str) -> str:
         timestamp = datetime.strptime(run_id, "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
     except ValueError:
         return run_id
-    return timestamp.strftime("%d %b %Y, %H:%M:%S UTC")
+    return timestamp.strftime("%d %b %Y, %H:%M UTC")
+
+
+def _figure_to_svg(figure: Figure, title: str, description: str) -> str:
+    """Serialize a Matplotlib figure as an accessible, deterministic SVG."""
+
+    buffer = io.StringIO()
+    figure.savefig(
+        buffer,
+        format="svg",
+        facecolor="white",
+        metadata={
+            "Title": title,
+            "Description": description,
+            "Creator": f"Matplotlib {mpl.__version__}",
+            "Date": None,
+        },
+    )
+    svg = buffer.getvalue()
+    svg = svg[svg.index("<svg") :]
+    opening_end = svg.index(">")
+    opening = svg[:opening_end]
+    opening += ' role="img" aria-labelledby="chart-title chart-description"'
+    escaped_title = html.escape(title)
+    svg = svg.replace(
+        f"<title>{escaped_title}</title>",
+        f'<title id="chart-title">{escaped_title}</title>',
+        1,
+    )
+    title_end = svg.index("</title>") + len("</title>")
+    svg = (
+        f"{opening}>{svg[opening_end + 1 : title_end]}"
+        f'\n <desc id="chart-description">{html.escape(description)}</desc>'
+        f"{svg[title_end:]}"
+    )
+    return "\n".join(line.rstrip() for line in svg.splitlines()) + "\n"
+
+
+def _prepare_axis(axis: Axes, *, grid_axis: str) -> None:
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    axis.grid(True, axis=grid_axis)
+    axis.set_axisbelow(True)
+
+
+def _add_heading(figure: Figure, title: str, subtitle: str) -> None:
+    figure.suptitle(
+        title,
+        x=0.06,
+        y=0.955,
+        ha="left",
+        fontsize=16,
+        fontweight="semibold",
+        color="#252725",
+    )
+    figure.text(
+        0.06,
+        0.885,
+        subtitle,
+        ha="left",
+        va="top",
+        color="#666A67",
+        fontsize=9,
+    )
+
+
+def render_learning_curve(frame: pd.DataFrame, run_id: str) -> str:
+    title = "Learning curves"
+    description = (
+        "Training and validation accuracy and macro F1 at increasing training set sizes."
+    )
+    with mpl.rc_context(_PLOT_STYLE):
+        figure = Figure(figsize=(11.6, 5.2))
+        FigureCanvasAgg(figure)
+        axes = figure.subplots(1, 2)
+        figure.subplots_adjust(
+            left=0.08,
+            right=0.975,
+            bottom=0.14,
+            top=0.76,
+            wspace=0.2,
+        )
+        _add_heading(
+            figure,
+            title,
+            f"Training run: {_display_run_time(run_id)} · fixed decision threshold",
+        )
+        training_rows = frame["training_rows"].astype(int).to_numpy()
+        series = (
+            ("Training", "train", _COLORS["primary"]),
+            ("Validation", "validation", _COLORS["accent"]),
+        )
+        for axis, (metric, panel_title) in zip(
+            axes,
+            (("accuracy", "Accuracy"), ("macro_f1", "Macro F1")),
+            strict=True,
+        ):
+            values: list[float] = []
+            for label, prefix, color in series:
+                metric_values = frame[f"{prefix}_{metric}"].astype(float).to_numpy()
+                values.extend(metric_values.tolist())
+                axis.plot(
+                    training_rows,
+                    metric_values,
+                    marker="o",
+                    markersize=4.5,
+                    linewidth=2,
+                    color=color,
+                    label=label,
+                )
+            lower = max(0.0, math.floor((min(values) - 0.0025) / 0.005) * 0.005)
+            axis.set_ylim(lower, 1.001)
+            axis.set_title(panel_title, loc="left")
+            axis.set_xlabel("Training rows")
+            axis.set_ylabel("Score")
+            axis.yaxis.set_major_formatter(mpl_ticker.PercentFormatter(1.0, decimals=1))
+            axis.xaxis.set_major_formatter(mpl_ticker.StrMethodFormatter("{x:,.0f}"))
+            axis.yaxis.set_major_locator(mpl_ticker.MaxNLocator(6))
+            _prepare_axis(axis, grid_axis="y")
+            axis.legend(loc="lower right")
+        return _figure_to_svg(figure, title, description)
 
 
 def render_candidate_comparison(frame: pd.DataFrame, run_id: str) -> str:
-    frame = frame.sort_values("macro_f1", ascending=False).reset_index(drop=True)
-    width, height = 1150, 590
-    left, top, chart_width = 210, 120, 750
-    group_height = 68
+    title = "Model comparison — validation set"
+    description = (
+        "Accuracy, macro F1, and phishing recall for every benchmark candidate."
+    )
+    ordered = frame.sort_values("macro_f1", ascending=False).reset_index(drop=True)
     metrics = (
-        ("accuracy", "Accuracy", "#c77b18"),
-        ("macro_f1", "Macro F1", "#a2472f"),
-        ("phishing_recall", "Phishing recall", "#51623d"),
+        ("accuracy", "Accuracy", _COLORS["primary"]),
+        ("macro_f1", "Macro F1", _COLORS["accent"]),
+        ("phishing_recall", "Phishing recall", _COLORS["neutral"]),
     )
-    parts = [
-        '<text class="title" x="48" y="44">Validation model comparison</text>',
-        (
-            f'<text class="subtitle" x="48" y="69">Training run: '
-            f"{html.escape(_display_run_time(run_id))} · validation data only</text>"
-        ),
-    ]
-    for tick in range(6):
-        value = tick / 5
-        tick_x = left + value * chart_width
-        parts.append(
-            f'<line class="grid" x1="{tick_x:.1f}" y1="{top - 15}" '
-            f'x2="{tick_x:.1f}" y2="{top + len(frame) * group_height - 12}"/>'
+    with mpl.rc_context(_PLOT_STYLE):
+        figure = Figure(figsize=(10.8, 5.6))
+        FigureCanvasAgg(figure)
+        axis = figure.subplots()
+        figure.subplots_adjust(left=0.205, right=0.945, bottom=0.13, top=0.74)
+        _add_heading(
+            figure,
+            title,
+            f"Training run: {_display_run_time(run_id)} · validation partition only",
         )
-        parts.append(
-            f'<text class="axis" x="{tick_x:.1f}" y="{top - 24}" '
-            f'text-anchor="middle">{value * 100:.0f}%</text>'
-        )
-    for row_index, row in frame.iterrows():
-        group_y = top + row_index * group_height
-        parts.append(
-            f'<text class="label" x="{left - 14}" y="{group_y + 27}" '
-            f'text-anchor="end">{html.escape(_display_name(str(row["candidate"])))}</text>'
-        )
-        for metric_index, (column, label, color) in enumerate(metrics):
-            value = float(row[column])
-            bar_y = group_y + metric_index * 17
-            parts.append(
-                f'<rect x="{left}" y="{bar_y}" width="{value * chart_width:.1f}" '
-                f'height="12" rx="3" fill="{color}">'
-                f"<title>{html.escape(label)}: {value * 100:.4f}%</title></rect>"
+        positions = np.arange(len(ordered), dtype=float)
+        bar_height = 0.2
+        offsets = (-bar_height, 0.0, bar_height)
+        for offset, (column, label, color) in zip(offsets, metrics, strict=True):
+            values = ordered[column].astype(float).to_numpy()
+            bars = axis.barh(
+                positions + offset,
+                values,
+                height=bar_height * 0.78,
+                color=color,
+                label=label,
             )
-            parts.append(
-                f'<text class="axis" x="{left + chart_width + 10}" y="{bar_y + 10}">'
-                f"{value * 100:.2f}%</text>"
-            )
-    legend_x = 585
-    for index, (_, label, color) in enumerate(metrics):
-        item_x = legend_x + index * 150
-        parts.extend(
-            [
-                f'<rect x="{item_x}" y="38" width="14" height="14" rx="2" fill="{color}"/>',
-                f'<text class="axis" x="{item_x + 20}" y="50">{html.escape(label)}</text>',
-            ]
+            for bar, value in zip(bars, values, strict=True):
+                axis.text(
+                    max(value + 0.008, 0.012),
+                    bar.get_y() + bar.get_height() / 2,
+                    f"{value:.1%}",
+                    va="center",
+                    ha="left",
+                    fontsize=8,
+                    color="#404040",
+                )
+        axis.set_yticks(
+            positions,
+            [_display_name(str(name)) for name in ordered["candidate"]],
         )
-    return _svg_document(
-        "Validation model comparison",
-        "Accuracy, macro F1, and phishing recall for every benchmark candidate.",
-        "\n".join(parts),
-        width=width,
-        height=height,
-    )
+        axis.invert_yaxis()
+        axis.set_xlim(0.0, 1.06)
+        axis.set_xlabel("Validation score")
+        axis.xaxis.set_major_formatter(mpl_ticker.PercentFormatter(1.0))
+        axis.xaxis.set_major_locator(mpl_ticker.MultipleLocator(0.2))
+        _prepare_axis(axis, grid_axis="x")
+        handles, labels = axis.get_legend_handles_labels()
+        figure.legend(
+            handles,
+            labels,
+            loc="upper right",
+            bbox_to_anchor=(0.945, 0.84),
+            ncol=3,
+            columnspacing=1.25,
+            handlelength=1.8,
+        )
+        return _figure_to_svg(figure, title, description)
 
 
 def render_confusion_matrix(metrics: dict[str, Any], run_id: str) -> str:
-    matrix = metrics["confusion_matrix"]
-    cells = (
-        ("True negative (TN)", int(matrix[0][0]), "#e0e7d7"),
-        ("False positive (FP)", int(matrix[0][1]), "#f3ded4"),
-        ("False negative (FN)", int(matrix[1][0]), "#f3ded4"),
-        ("True positive (TP)", int(matrix[1][1]), "#e0e7d7"),
+    title = "Confusion matrix — untouched test"
+    description = (
+        "Counts and row percentages for true negatives, false positives, "
+        "false negatives, and true positives."
     )
-    parts = [
-        '<text class="title" x="48" y="44">Untouched test confusion matrix</text>',
-        (
-            f'<text class="subtitle" x="48" y="69">Training run: '
-            f"{html.escape(_display_run_time(run_id))} · rows are actual labels</text>"
-        ),
-        '<text class="label" x="280" y="115" text-anchor="middle">Predicted safe</text>',
-        '<text class="label" x="540" y="115" text-anchor="middle">Predicted phishing</text>',
-        '<text class="label" x="140" y="235" text-anchor="end">Actually safe</text>',
-        '<text class="label" x="140" y="400" text-anchor="end">Actually phishing</text>',
-    ]
-    positions = ((155, 135), (415, 135), (155, 300), (415, 300))
-    for (label, value, color), (x, y) in zip(cells, positions, strict=True):
-        parts.extend(
-            [
-                f'<rect x="{x}" y="{y}" width="250" height="145" rx="8" '
-                f'fill="{color}" stroke="#81786b"/>',
-                f'<text x="{x + 125}" y="{y + 67}" text-anchor="middle" '
-                f'style="font-size:34px;font-weight:700">{value:,}</text>',
-                f'<text class="axis" x="{x + 125}" y="{y + 99}" '
-                f'text-anchor="middle">{html.escape(label)}</text>',
-            ]
+    matrix = np.asarray(metrics["confusion_matrix"], dtype=int)
+    labels = (
+        ("True negative (TN)", "False positive (FP)"),
+        ("False negative (FN)", "True positive (TP)"),
+    )
+    row_totals = matrix.sum(axis=1, keepdims=True)
+    row_percentages = np.divide(
+        matrix,
+        row_totals,
+        out=np.zeros_like(matrix, dtype=float),
+        where=row_totals != 0,
+    )
+    with mpl.rc_context(_PLOT_STYLE):
+        figure = Figure(figsize=(8.8, 5.25))
+        FigureCanvasAgg(figure)
+        grid = figure.add_gridspec(
+            1,
+            2,
+            width_ratios=(1, 0.035),
+            left=0.165,
+            right=0.84,
+            bottom=0.14,
+            top=0.74,
+            wspace=0.08,
         )
-    return _svg_document(
-        "Untouched test confusion matrix",
-        "Counts of true negatives, false positives, false negatives, and true positives.",
-        "\n".join(parts),
-        width=820,
-        height=485,
-    )
+        axis = figure.add_subplot(grid[0, 0])
+        color_axis = figure.add_subplot(grid[0, 1])
+        _add_heading(
+            figure,
+            title,
+            f"Training run: {_display_run_time(run_id)} · rows are actual labels",
+        )
+        color_map = mpl_colors.LinearSegmentedColormap.from_list(
+            "neutral_green",
+            ("#F4F3EF", "#C9D2CE", _COLORS["primary"]),
+        )
+        image = axis.imshow(matrix, cmap=color_map)
+        for row in range(2):
+            for column in range(2):
+                color = "white" if row_percentages[row, column] > 0.55 else "#202020"
+                axis.text(
+                    column,
+                    row,
+                    (
+                        f"{matrix[row, column]:,}\n"
+                        f"{row_percentages[row, column]:.2%} of actual class\n"
+                        f"{labels[row][column]}"
+                    ),
+                    ha="center",
+                    va="center",
+                    color=color,
+                    fontsize=9,
+                    linespacing=1.4,
+                )
+        axis.set_xticks((0, 1), ("Predicted safe", "Predicted phishing"))
+        axis.set_yticks((0, 1), ("Actually safe", "Actually phishing"))
+        axis.tick_params(length=0)
+        for spine in axis.spines.values():
+            spine.set_visible(False)
+        color_bar = figure.colorbar(image, cax=color_axis)
+        color_bar.set_label("Messages")
+        color_bar.ax.yaxis.set_major_formatter(
+            mpl_ticker.StrMethodFormatter("{x:,.0f}")
+        )
+        return _figure_to_svg(figure, title, description)
 
 
 def render_per_source_metrics(metrics: dict[str, Any], run_id: str) -> str:
     per_source = metrics["per_source"]
     metric_specs = (
-        ("accuracy", "Accuracy", "#c77b18"),
-        ("macro_f1", "Macro F1", "#a2472f"),
-        ("phishing_precision", "Phishing precision", "#87500d"),
-        ("phishing_recall", "Phishing recall", "#51623d"),
+        ("accuracy", "Accuracy"),
+        ("macro_f1", "Macro F1"),
+        ("phishing_precision", "Phishing precision"),
+        ("phishing_recall", "Phishing recall"),
     )
     sources = sorted(per_source)
-    parts = [
-        '<text class="title" x="48" y="44">Untouched test metrics by dataset</text>',
-        (
-            f'<text class="subtitle" x="48" y="69">Training run: '
-            f"{html.escape(_display_run_time(run_id))} · horizontal scale starts at 75%</text>"
-        ),
-    ]
-    left, chart_width = 160, 760
-    for tick in range(6):
-        value = 0.75 + tick * 0.05
-        tick_x = left + (value - 0.75) / 0.25 * chart_width
-        parts.extend(
-            [
-                f'<line class="grid" x1="{tick_x:.1f}" y1="100" '
-                f'x2="{tick_x:.1f}" y2="420"/>',
-                f'<text class="axis" x="{tick_x:.1f}" y="90" '
-                f'text-anchor="middle">{value * 100:.0f}%</text>',
-            ]
-        )
-    for source_index, source in enumerate(sources):
-        start_y = 120 + source_index * 155
-        parts.append(
-            f'<text class="label" x="{left - 16}" y="{start_y + 36}" '
-            f'text-anchor="end">{html.escape(_display_source(source))}</text>'
-        )
-        for metric_index, (key, label, color) in enumerate(metric_specs):
-            value = float(per_source[source][key])
-            bar_y = start_y + metric_index * 27
-            bar_width = max(0.0, value - 0.75) / 0.25 * chart_width
-            parts.extend(
-                [
-                    f'<rect x="{left}" y="{bar_y}" width="{bar_width:.1f}" '
-                    f'height="18" rx="3" fill="{color}">'
-                    f"<title>{html.escape(label)}: {value * 100:.4f}%</title></rect>",
-                    f'<text class="axis" x="{left + bar_width + 7:.1f}" y="{bar_y + 14}">'
-                    f"{value * 100:.2f}%</text>",
-                ]
-            )
-    legend_y = 465
-    for index, (_, label, color) in enumerate(metric_specs):
-        item_x = 145 + index * 235
-        parts.extend(
-            [
-                f'<rect x="{item_x}" y="{legend_y}" width="14" height="14" '
-                f'rx="2" fill="{color}"/>',
-                f'<text class="axis" x="{item_x + 20}" y="{legend_y + 12}">'
-                f"{html.escape(label)}</text>",
-            ]
-        )
-    return _svg_document(
-        "Untouched test metrics by source dataset",
-        "Accuracy, macro F1, phishing precision, and phishing recall for each source.",
-        "\n".join(parts),
-        width=1120,
-        height=520,
+    title = "Metrics by dataset — untouched test"
+    description = (
+        "Accuracy, macro F1, phishing precision, and phishing recall for each source."
     )
+    values = [
+        float(per_source[source][metric])
+        for source in sources
+        for metric, _ in metric_specs
+    ]
+    lower = max(0.0, math.floor((min(values) - 0.005) / 0.01) * 0.01)
+    with mpl.rc_context(_PLOT_STYLE):
+        figure = Figure(figsize=(10.8, 4.8))
+        FigureCanvasAgg(figure)
+        axis = figure.subplots()
+        figure.subplots_adjust(left=0.17, right=0.945, bottom=0.16, top=0.72)
+        _add_heading(
+            figure,
+            title,
+            f"Training run: {_display_run_time(run_id)} · familiar-source test partition",
+        )
+        y_positions = np.arange(len(metric_specs), dtype=float)
+        offsets = np.linspace(-0.12, 0.12, len(sources))
+        source_colors = (_COLORS["primary"], _COLORS["accent"])
+        for y_position, (metric, _) in zip(
+            y_positions,
+            metric_specs,
+            strict=True,
+        ):
+            paired_values = [float(per_source[source][metric]) for source in sources]
+            axis.hlines(
+                y_position,
+                min(paired_values),
+                max(paired_values),
+                color=_COLORS["guide"],
+                linewidth=1,
+                zorder=1,
+            )
+        for offset, source, color in zip(
+            offsets,
+            sources,
+            source_colors,
+            strict=True,
+        ):
+            source_values = np.asarray(
+                [float(per_source[source][metric]) for metric, _ in metric_specs]
+            )
+            axis.scatter(
+                source_values,
+                y_positions + offset,
+                s=54,
+                color=color,
+                label=_display_source(source),
+                zorder=3,
+            )
+            for value, y_position in zip(
+                source_values,
+                y_positions + offset,
+                strict=True,
+            ):
+                axis.annotate(
+                    f"{value:.2%}",
+                    (value, y_position),
+                    xytext=(-7, 0),
+                    textcoords="offset points",
+                    va="center",
+                    ha="right",
+                    fontsize=8,
+                    color="#303030",
+                )
+        axis.set_yticks(y_positions, [label for _, label in metric_specs])
+        axis.invert_yaxis()
+        axis.set_xlim(lower, 1.003)
+        axis.set_xlabel("Score (expanded scale)")
+        axis.xaxis.set_major_formatter(mpl_ticker.PercentFormatter(1.0, decimals=1))
+        axis.xaxis.set_major_locator(mpl_ticker.MaxNLocator(7))
+        _prepare_axis(axis, grid_axis="x")
+        handles, labels = axis.get_legend_handles_labels()
+        figure.legend(
+            handles,
+            labels,
+            loc="upper right",
+            bbox_to_anchor=(0.945, 0.825),
+            ncol=2,
+            columnspacing=1.25,
+            handletextpad=0.55,
+        )
+        return _figure_to_svg(figure, title, description)
 
 
 def generate_diagnostic_report(
@@ -527,7 +573,11 @@ def generate_diagnostic_report(
         raise FileNotFoundError(f"Training report files are missing for run {run_id}")
 
     target = Path(output_dir)
-    target = target.resolve() if target.is_absolute() else (config.project_root / target).resolve()
+    target = (
+        target.resolve()
+        if target.is_absolute()
+        else (config.project_root / target).resolve()
+    )
     target.mkdir(parents=True, exist_ok=True)
 
     learning_curve = compute_learning_curve(
@@ -566,6 +616,7 @@ def generate_diagnostic_report(
         "run_id": run_id,
         "selected_model": manifest["selected_model"],
         "threshold": manifest["threshold"],
+        "chart_renderer": f"Matplotlib {mpl.__version__}",
         "learning_curve_method": (
             "Refit the promoted classical model on deterministic, source-and-label-stratified "
             "subsets of the original training partition. Evaluate training and validation at "

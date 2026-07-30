@@ -67,15 +67,6 @@ Invoke-RestMethod `
 `GET /health` returns `200` with the loaded model version or `503` when no valid artifact
 can be loaded. Empty input returns `400`; oversized requests return `413`.
 
-## Removed Office surface
-
-The Outlook add-in, its manifest, icons, templates, scripts, styles, documentation, and
-legacy endpoint were deleted. These routes intentionally return `404`:
-
-- `POST /evaluateEmail`
-- `GET /taskpane.html`
-- `GET /commands.html`
-
 ## Automated checks
 
 ```powershell
@@ -87,8 +78,8 @@ python -m pip check
 Tests cover provenance verification and overwrite refusal, privacy canonicalization,
 MinHash grouping and exact verification, grouped split isolation, nested grouped CV,
 calibration metrics, SpaPhish adaptation, monitoring alerts, promotion rollback, release
-contents, stable JSON/EML inference, Office route removal, UI order and source
-precedence, and generated report charts.
+contents, stable JSON/EML inference, UI order and source precedence, and generated report
+charts.
 
 ## Release commands
 
