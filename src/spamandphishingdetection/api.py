@@ -13,6 +13,8 @@ from .config import DEFAULT_CONFIG_PATH, ProjectConfig, load_config
 from .inference import ArtifactError, Predictor, extract_text_from_eml
 
 LOGGER = logging.getLogger(__name__)
+MODEL_UNAVAILABLE_ERROR = "Prediction model is unavailable"
+INVALID_REQUEST_ERROR = "Invalid email input"
 
 
 def create_app(
@@ -33,16 +35,14 @@ def create_app(
     )
     app.config["MAX_CONTENT_LENGTH"] = project_config.max_request_bytes
     predictor: Predictor | None = None
-    load_error: str | None = None
     try:
         predictor = Predictor.load(project_config, artifact)
     except ArtifactError as error:
-        load_error = str(error)
         LOGGER.warning("Prediction model is unavailable: %s", error)
 
     def require_predictor() -> Predictor:
         if predictor is None:
-            raise ArtifactError(load_error or "Prediction model is unavailable")
+            raise ArtifactError(MODEL_UNAVAILABLE_ERROR)
         return predictor
 
     def request_text() -> str:
@@ -67,7 +67,7 @@ def create_app(
                     {
                         "status": "unavailable",
                         "model_loaded": False,
-                        "error": load_error,
+                        "error": MODEL_UNAVAILABLE_ERROR,
                     }
                 ),
                 503,
@@ -92,9 +92,9 @@ def create_app(
                 return jsonify({"error": "Email text is required"}), 400
             result = model.predict_text(text)
             return jsonify(result.to_dict()), 200
-        except ArtifactError as error:
-            return jsonify({"error": str(error)}), 503
-        except (TypeError, ValueError) as error:
-            return jsonify({"error": str(error)}), 400
+        except ArtifactError:
+            return jsonify({"error": MODEL_UNAVAILABLE_ERROR}), 503
+        except (TypeError, ValueError):
+            return jsonify({"error": INVALID_REQUEST_ERROR}), 400
 
     return app
