@@ -13,26 +13,26 @@ dependencies = [
   "beautifulsoup4==4.15.0",
   "datasketch==2.0.0",
   "Flask==3.1.3",
-  "joblib==1.5.3",
+  "joblib==1.6.0",
   "matplotlib==3.11.1",
-  "numpy==2.5.1",
+  "numpy==2.5.2",
   "pandas==3.0.5",
   "scikit-learn==1.9.0",
-  "scipy==1.18.0",
-  "tldextract==5.3.1"
+  "scipy==1.18.1",
+  "tldextract==5.3.2"
 ]
 
 [project.optional-dependencies]
 transformer = [
   "accelerate==1.14.0",
   "safetensors==0.8.0",
-  "torch==2.13.0",
-  "transformers==5.14.1"
+  "torch==2.14.0",
+  "transformers==5.16.1"
 ]
 dev = [
   "pip-audit==2.10.1",
   "pytest==9.1.1",
-  "ruff==0.16.0"
+  "ruff==0.16.6"
 ]
 
 [project.scripts]
