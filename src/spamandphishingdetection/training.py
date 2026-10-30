@@ -39,6 +39,7 @@ from .integrity import bind_latest, build_transformer_file_manifest
 from .privacy import scan_model_artifact
 
 LOGGER = logging.getLogger(__name__)
+VALIDATION_PREDICTIONS_FILE = "validation_predictions.csv"
 
 
 @dataclass
@@ -721,6 +722,60 @@ def _package_versions() -> dict[str, str]:
     return installed
 
 
+def _validation_evidence(
+    validation: pd.DataFrame,
+    selected: CandidateResult,
+    classical: CandidateResult,
+    transformer: CandidateResult | None,
+) -> pd.DataFrame:
+    """Freeze the selected candidate's validation predictions before any refit.
+
+    Every probability comes from models fitted on the training partition only. These
+    rows are the single authoritative source of validation metrics for transformer
+    and ensemble releases, because the final model also trains on validation rows.
+    """
+
+    evidence = pd.DataFrame(
+        {
+            "row_id": validation["row_id"].to_numpy(),
+            "label": validation["label"].astype(int).to_numpy(),
+            "probability": np.asarray(selected.probabilities, dtype=float),
+        }
+    )
+    if selected.backend == "ensemble":
+        if transformer is None:
+            raise RuntimeError("Transformer state is missing for selected ensemble")
+        evidence["classical_probability"] = np.asarray(classical.probabilities, dtype=float)
+        evidence["transformer_probability"] = np.asarray(transformer.probabilities, dtype=float)
+    return evidence
+
+
+def _metric_provenance(selected: CandidateResult) -> dict[str, Any]:
+    """Describe which fitted state produced each reported metric."""
+
+    validation_uses = ["model selection", "threshold tuning"]
+    if selected.backend in {"transformer", "ensemble"}:
+        validation_uses.extend(["early stopping", "epoch selection"])
+    if selected.backend == "ensemble":
+        validation_uses.append("ensemble weight selection")
+    return {
+        "validation": {
+            "partition": "validation",
+            "fitted_on": ["train"],
+            "fitted_state": "selected candidate before the final refit",
+            "predictions": VALIDATION_PREDICTIONS_FILE,
+            "used_for": validation_uses,
+            "note": "Out-of-sample for the model weights, but optimistic after selection.",
+        },
+        "untouched_test": {
+            "partition": "test",
+            "fitted_on": ["train", "validation"],
+            "fitted_state": "final refit after model, threshold, and weights were locked",
+            "used_for": ["held-out evaluation only"],
+        },
+    }
+
+
 def _remove_run_scratch(artifact_dir: Path, path: Path) -> None:
     """Delete a scratch directory that must live inside the current run."""
 
@@ -928,6 +983,15 @@ def run_training(
         else _select_with_tolerance(selectable, config.selection_tolerance)
     )
 
+    # Lock the selection evidence before anything is refitted on validation rows.
+    _validation_evidence(
+        splits.validation,
+        selected,
+        best_classical,
+        transformer_result,
+    ).to_csv(report_dir / VALIDATION_PREDICTIONS_FILE, index=False)
+    metric_provenance = _metric_provenance(selected)
+
     train_and_validation = pd.concat(
         [splits.train, splits.validation],
         ignore_index=True,
@@ -1033,6 +1097,7 @@ def run_training(
         "cross_source_diagnostic": cross_source,
         "grouped_cv_selection": grouped_cv_summary.to_dict(orient="records"),
         "transformer_error": transformer_error,
+        "metric_provenance": metric_provenance,
     }
     _save_json(report_dir / "metrics.json", report)
 
@@ -1043,6 +1108,7 @@ def run_training(
         "grouped_cv_folds.csv",
         "grouped_cv_summary.csv",
         "candidate_metrics.csv",
+        VALIDATION_PREDICTIONS_FILE,
         "metrics.json",
     )
     report_hashes = {
@@ -1077,6 +1143,7 @@ def run_training(
         "transformer_batch_size": config.transformer_batch_size,
         "ensemble": selected.metadata if selected.backend == "ensemble" else None,
         "test_metrics": test_metrics,
+        "metric_provenance": metric_provenance,
         "calibration": {
             "method": (
                 "group-aware sigmoid"

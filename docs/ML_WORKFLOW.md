@@ -119,6 +119,23 @@ ensemble decisions.
 After selection, training and validation are combined and the chosen architecture is
 refit. The locked threshold is applied once to the untouched three folds.
 
+Validation evidence must never come from that refit, because it trained on the
+validation rows. Before refitting, training freezes the selected candidate's validation
+probabilities in `reports/<run-id>/validation_predictions.csv` (`row_id`, `label`,
+`probability`, plus `classical_probability` and `transformer_probability` for an
+ensemble). Every probability comes from models fitted on the training partition only,
+and the file's SHA-256 is recorded in `report_hashes`. The model, threshold, epoch count,
+and ensemble weight are all locked before the refit starts.
+
+`generalization-report` rebuilds a training-only classical model, as before. For
+transformer and ensemble artifacts it uses only the hash-verified frozen predictions,
+checks that their rows match the re-derived validation partition, and refuses artifacts
+that lack them rather than scoring the refit on validation. The manifest, `metrics.json`,
+and the generalization report all include `metric_provenance`, which names the
+partition, the partitions each fitted state trained on, and what each metric was used
+for. Validation metrics are model-selection evidence: out-of-sample for the weights,
+but optimistic after selection, early stopping, and threshold tuning.
+
 Reported metrics include:
 
 - accuracy and macro F1;

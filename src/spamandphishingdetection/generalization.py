@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import html
+import io
 import json
 import re
 from datetime import UTC, datetime
@@ -24,16 +25,20 @@ from .integrity import (
     canonical_json_bytes,
     commit_file_group,
     latest_record,
+    normalize_sha256,
     read_regular_file,
     sha256_bytes,
     trusted_manifest_record,
 )
 from .preprocessing import prepare_text
 from .training import (
+    VALIDATION_PREDICTIONS_FILE,
     _calibration_folds,
     _predict_positive_probability,
     build_classical_candidate,
 )
+
+MAX_VALIDATION_EVIDENCE_BYTES = 256 * 1024 * 1024
 
 _URL = re.compile(r"https?://[^\s<>'\"]+", re.IGNORECASE)
 RELEASE_EVIDENCE_FILES = ("generalization_report.json", "reliability_diagram.svg")
@@ -121,6 +126,42 @@ def _probabilities(predictor: Predictor, frame: pd.DataFrame) -> np.ndarray:
         [predictor.predict_text(text).probability for text in frame["text"]],
         dtype=float,
     )
+
+
+def _recorded_validation_probabilities(
+    config: ProjectConfig,
+    predictor: Predictor,
+    validation: pd.DataFrame,
+) -> np.ndarray:
+    """Return pre-refit validation probabilities recorded during training.
+
+    A transformer or ensemble release is refitted on training plus validation rows,
+    so scoring that final model on validation would be in-sample. Only the frozen,
+    hash-verified predictions of the training-only candidate are accepted.
+    """
+
+    expected = normalize_sha256(
+        (predictor.manifest.get("report_hashes") or {}).get(VALIDATION_PREDICTIONS_FILE)
+    )
+    path = config.reports_dir / predictor.model_version / VALIDATION_PREDICTIONS_FILE
+    if expected is None or not path.is_file():
+        raise RuntimeError(
+            "This artifact has no recorded leakage-safe validation predictions. Scoring "
+            "the train-plus-validation refit on validation rows would be in-sample; "
+            "retrain to record them."
+        )
+    payload = read_regular_file(path, MAX_VALIDATION_EVIDENCE_BYTES, "Validation predictions")
+    if sha256_bytes(payload) != expected:
+        raise RuntimeError("Recorded validation predictions do not match the manifest")
+    evidence = pd.read_csv(io.BytesIO(payload), dtype={"row_id": str})
+    if (
+        evidence["row_id"].tolist() != validation["row_id"].astype(str).tolist()
+        or evidence["label"].astype(int).tolist() != validation["label"].astype(int).tolist()
+    ):
+        raise RuntimeError(
+            "Recorded validation predictions do not match the re-derived validation partition"
+        )
+    return evidence["probability"].to_numpy(dtype=float)
 
 
 def _slice_report(
@@ -336,8 +377,14 @@ def generate_generalization_report(
             validation_model,
             splits.validation["text"],
         )
+        validation_source = "training-partition rebuild of the selected classical candidate"
     else:
-        validation_probabilities = _probabilities(predictor, splits.validation)
+        validation_probabilities = _recorded_validation_probabilities(
+            config,
+            predictor,
+            splits.validation,
+        )
+        validation_source = f"recorded pre-refit predictions ({VALIDATION_PREDICTIONS_FILE})"
     validation_metrics = evaluate_probabilities(
         splits.validation["label"],
         validation_probabilities,
@@ -367,6 +414,26 @@ def generate_generalization_report(
         },
         "near_duplicate_grouping": audited.audit["near_duplicate_grouping"],
         "split_method": splits.summary["method"],
+        "metric_provenance": {
+            "validation": {
+                "partition": "validation",
+                "fitted_on": ["train"],
+                "source": validation_source,
+                "role": "model-selection evidence; optimistic after selection",
+            },
+            "untouched_test": {
+                "partition": "test",
+                "fitted_on": ["train", "validation"],
+                "source": "released artifact",
+                "role": "held-out evaluation after selection was locked",
+            },
+            "external": {
+                "partition": "SpaPhish v5",
+                "fitted_on": ["train", "validation"],
+                "source": "released artifact",
+                "role": "one-time blind evaluation; never used for selection",
+            },
+        },
         "validation": validation_metrics,
         "untouched_test": test_metrics,
         "slices": {
