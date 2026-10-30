@@ -35,7 +35,7 @@ from .datasets import (
     load_and_audit_datasets,
 )
 from .evaluation import evaluate_probabilities, metrics_table, tune_threshold
-from .integrity import bind_latest
+from .integrity import bind_latest, build_transformer_file_manifest
 from .privacy import scan_model_artifact
 
 LOGGER = logging.getLogger(__name__)
@@ -721,6 +721,17 @@ def _package_versions() -> dict[str, str]:
     return installed
 
 
+def _remove_run_scratch(artifact_dir: Path, path: Path) -> None:
+    """Delete a scratch directory that must live inside the current run."""
+
+    if not path.exists():
+        return
+    resolved = path.resolve()
+    if artifact_dir.resolve() not in resolved.parents:
+        raise RuntimeError("Refusing to remove a directory outside the artifact run")
+    shutil.rmtree(resolved)
+
+
 def _save_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
@@ -973,6 +984,8 @@ def run_training(
             splits.test,
             config,
         )
+        # Trainer scratch output is not part of the inference payload.
+        _remove_run_scratch(artifact_dir, final_dir / "checkpoints")
 
     if selected.backend == "classical":
         test_probabilities = test_classical_probabilities
@@ -1037,6 +1050,13 @@ def run_training(
         for name in report_names
         if (report_dir / name).is_file()
     }
+    # Unselected candidate checkpoints must be gone before the payload is scanned.
+    _remove_run_scratch(artifact_dir, candidate_transformer_dir)
+    transformer_files = (
+        build_transformer_file_manifest(artifact_dir)
+        if selected.backend in {"transformer", "ensemble"}
+        else None
+    )
     privacy_scan = scan_model_artifact(artifact_dir)
     provenance_path = config.project_root / "config" / "datasets.v1.json"
     dependency_lock = config.project_root / "requirements.lock"
@@ -1095,15 +1115,11 @@ def run_training(
     }
     if (artifact_dir / "model.joblib").is_file():
         manifest["model_sha256"] = file_sha256(artifact_dir / "model.joblib")
+    if transformer_files is not None:
+        manifest["transformer_files"] = transformer_files
     _save_json(artifact_dir / "manifest.json", manifest)
 
     bind_latest(config, artifact_dir, action="train")
-
-    if candidate_transformer_dir.exists():
-        resolved_candidate = candidate_transformer_dir.resolve()
-        if artifact_dir.resolve() not in resolved_candidate.parents:
-            raise RuntimeError("Refusing to remove transformer candidate outside artifact run")
-        shutil.rmtree(resolved_candidate)
 
     return TrainingResult(
         artifact_dir=artifact_dir,
@@ -1199,12 +1215,7 @@ def finalize_completed_classical_run(
         ):
             raise ValueError(f"Recomputed untouched-test {metric_name} does not match")
 
-    candidate_transformer_dir = artifact_dir / ".transformer_candidate"
-    if candidate_transformer_dir.exists():
-        resolved_candidate = candidate_transformer_dir.resolve()
-        if artifact_dir.resolve() not in resolved_candidate.parents:
-            raise RuntimeError("Refusing to remove transformer candidate outside artifact run")
-        shutil.rmtree(resolved_candidate)
+    _remove_run_scratch(artifact_dir, artifact_dir / ".transformer_candidate")
 
     report_hashes = {
         name: file_sha256(report_dir / name)

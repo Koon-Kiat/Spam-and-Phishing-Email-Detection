@@ -44,6 +44,18 @@ same checks:
 3. The manifest bytes are hashed before they are parsed and must match exactly.
 4. `model.joblib` is read into memory, its SHA-256 must equal the manifest's
    `model_sha256`, and only those verified bytes are passed to `joblib.load`.
+5. Transformer and ensemble payloads must match the manifest's `transformer_files`
+   exactly: every recorded file present with the recorded size and SHA-256, and no
+   unrecorded file, link, or special file anywhere under `transformer/`. Pickle-capable
+   weight formats and Python files are refused. Any sharded-checkpoint index must map
+   every tensor to a plain file name inside the verified set. Only then are the tokenizer
+   and model loaded, from local files only, as safetensors, with remote code disabled.
+
+Step 5 is also the project's mitigation for GHSA-4j2p-28q2-5m79 (CVE-2026-69112). The
+advisory lists Accelerate through 1.14.0, but Accelerate 1.15.0 and transformers 5.19.0
+still join `weight_map` entries onto the checkpoint folder without validation, and no
+fixed release exists yet. The project does not call the affected Accelerate loaders, and
+it never hands an unverified index to any loader.
 
 Symlinks, non-regular files, oversized files, corrupted JSON, missing integrity fields,
 checksum mismatches, and deserialization failures all fail closed with `ArtifactError`.

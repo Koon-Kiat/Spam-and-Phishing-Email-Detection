@@ -133,6 +133,26 @@ Manifest schema 2 records grouping settings, calibration, monitoring baselines,
 dependencies, dataset hashes, report hashes, the model hash, and privacy-scan evidence.
 Inference remains compatible with schema 1 artifacts.
 
+Transformer and ensemble artifacts also record `transformer_files`, a mapping sorted by
+path from each file under `transformer/model/` to its SHA-256 and byte size:
+
+```json
+"transformer_files": {
+  "transformer/model/config.json": {"bytes": 812, "sha256": "<64 hex>"},
+  "transformer/model/model.safetensors": {"bytes": 267832560, "sha256": "<64 hex>"}
+}
+```
+
+Paths are artifact-relative POSIX paths under `transformer/model/`. Absolute paths,
+`.`/`..` segments, backslashes, drive letters, case-insensitive duplicates, links,
+special files, pickle-capable formats (`.bin`, `.pt`, `.pkl`, ...), and Python files
+are rejected. Promotion, packaging, and inference all require exact file-set equality.
+Training removes Trainer scratch output and unselected candidate checkpoints before it
+writes this mapping. An ensemble manifest records both `model_sha256` and
+`transformer_files`, so the manifest hash bound at promotion covers both components.
+The field is additive: classical schema-2 artifacts are unchanged, and transformer or
+ensemble artifacts without it are refused rather than loaded unverified.
+
 ### Release diagnostics
 
 The checked-in SVGs are rendered with Matplotlib from run `20260725T101318Z`; the JSON
@@ -235,7 +255,8 @@ and restores the previous model atomically, refusing a manifest that changed sin
 was promoted. Inference verifies the manifest and payload against these records before
 any deserialization; artifacts without a record require `--manifest-sha256`.
 
-`package-release` includes only:
+`package-release` copies only the recorded payload files and re-verifies the staged
+copies against the validated manifest before archiving. It includes only:
 
 - model payload and schema-2 manifest;
 - metrics, grouped-CV summary, generalization report, and reliability diagram;

@@ -21,6 +21,7 @@ from .integrity import (
     promotion_history,
     read_regular_file,
     sha256_bytes,
+    verify_transformer_payload,
 )
 from .privacy import scan_model_artifact
 
@@ -42,6 +43,15 @@ def _artifact_path(config: ProjectConfig, artifact: str | Path) -> Path:
     return path
 
 
+def _expected_payload_entries(backend: object) -> set[str]:
+    entries = {"manifest.json"}
+    if backend in {"classical", "ensemble"}:
+        entries.add("model.joblib")
+    if backend in {"transformer", "ensemble"}:
+        entries.add("transformer")
+    return entries
+
+
 def validate_artifact(config: ProjectConfig, artifact: str | Path) -> dict[str, Any]:
     """Validate schema, payload checksums, reports, and privacy before promotion."""
 
@@ -60,12 +70,27 @@ def validate_artifact(config: ProjectConfig, artifact: str | Path) -> dict[str, 
         raise ReleaseValidationError("Public promotion requires manifest schema version 2")
     if manifest.get("model_version") != path.name:
         raise ReleaseValidationError("Model version does not match artifact directory")
-    if manifest.get("backend") in {"classical", "ensemble"}:
+    backend = manifest.get("backend")
+    if backend not in {"classical", "transformer", "ensemble"}:
+        raise ReleaseValidationError("Unsupported model backend")
+    unexpected_entries = {entry.name for entry in path.iterdir()} - _expected_payload_entries(
+        backend
+    )
+    if unexpected_entries:
+        raise ReleaseValidationError(
+            f"Artifact contains {len(unexpected_entries)} unrecorded top-level entries"
+        )
+    if backend in {"classical", "ensemble"}:
         model_path = path / "model.joblib"
-        if not model_path.is_file():
+        if model_path.is_symlink() or not model_path.is_file():
             raise ReleaseValidationError("Classical model payload is missing")
         if file_sha256(model_path) != manifest.get("model_sha256"):
             raise ReleaseValidationError("Classical model checksum does not match manifest")
+    if backend in {"transformer", "ensemble"}:
+        try:
+            verify_transformer_payload(path, manifest)
+        except ArtifactError as error:
+            raise ReleaseValidationError(str(error)) from error
     scan = scan_model_artifact(path)
     if scan["status"] != "passed":
         raise ReleaseValidationError("Artifact privacy scan did not pass")
@@ -177,6 +202,7 @@ def package_release(
 
     validated = validate_artifact(config, artifact)
     artifact_dir: Path = validated["artifact_dir"]
+    manifest: dict[str, Any] = validated["manifest"]
     report_dir = config.reports_dir / artifact_dir.name
     destination = Path(output_dir)
     if not destination.is_absolute():
@@ -190,12 +216,27 @@ def package_release(
     with tempfile.TemporaryDirectory(dir=destination) as temporary_name:
         stage = Path(temporary_name) / f"spam-phishing-model-{version}"
         stage.mkdir()
-        for filename in ("manifest.json", "model.joblib"):
-            source = artifact_dir / filename
-            if source.is_file():
-                shutil.copy2(source, stage / filename)
-        if (artifact_dir / "transformer").is_dir():
-            shutil.copytree(artifact_dir / "transformer", stage / "transformer")
+        payload_files = ["manifest.json"]
+        if manifest["backend"] in {"classical", "ensemble"}:
+            payload_files.append("model.joblib")
+        if manifest["backend"] in {"transformer", "ensemble"}:
+            payload_files.extend(sorted(manifest["transformer_files"]))
+        for relative in payload_files:
+            target = stage / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(artifact_dir / relative, target)
+        # Re-verify the staged copies so the archive holds exactly the validated payload.
+        if file_sha256(stage / "manifest.json") != validated["manifest_sha256"]:
+            raise ReleaseValidationError("Staged manifest does not match the validated manifest")
+        if "model.joblib" in payload_files and (
+            file_sha256(stage / "model.joblib") != manifest.get("model_sha256")
+        ):
+            raise ReleaseValidationError("Staged model checksum does not match manifest")
+        if manifest["backend"] in {"transformer", "ensemble"}:
+            try:
+                verify_transformer_payload(stage, manifest)
+            except ArtifactError as error:
+                raise ReleaseValidationError(str(error)) from error
         for filename in (
             "metrics.json",
             "generalization_report.json",

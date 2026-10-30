@@ -18,6 +18,7 @@ from .integrity import (
     load_trusted_manifest,
     resolve_artifact_dir,
     validate_manifest_fields,
+    verify_transformer_payload,
 )
 from .preprocessing import prepare_text
 from .training import _head_tail_token_ids, configure_runtime_cache
@@ -144,17 +145,19 @@ class Predictor:
             raise ArtifactError("Model artifact could not be loaded") from error
 
     def _load_transformer(self) -> None:
+        # Verify the complete file set before importing or invoking any loader.
+        model_dir = verify_transformer_payload(self.artifact_dir, self.manifest)
         configure_runtime_cache(self.config)
         import torch
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-        model_dir = self.artifact_dir / "transformer" / "model"
-        if not model_dir.is_dir():
-            raise ArtifactError(f"Transformer model not found: {model_dir}")
+        local_only = {"local_files_only": True, "trust_remote_code": False}
         try:
-            self.tokenizer = AutoTokenizer.from_pretrained(model_dir)
+            self.tokenizer = AutoTokenizer.from_pretrained(model_dir, **local_only)
             self.transformer_model = AutoModelForSequenceClassification.from_pretrained(
-                model_dir
+                model_dir,
+                use_safetensors=True,
+                **local_only,
             )
         except (OSError, ValueError) as error:
             raise ArtifactError("Transformer model could not be loaded") from error

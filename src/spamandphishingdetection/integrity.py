@@ -31,8 +31,30 @@ from .config import ProjectConfig
 MAX_MANIFEST_BYTES = 16 * 1024 * 1024
 MAX_RECORD_BYTES = 16 * 1024 * 1024
 MAX_CLASSICAL_MODEL_BYTES = 2 * 1024 * 1024 * 1024
+MAX_SHARD_INDEX_BYTES = 16 * 1024 * 1024
 SUPPORTED_BACKENDS = frozenset({"classical", "transformer", "ensemble"})
+TRANSFORMER_MODEL_PREFIX = "transformer/model/"
+# Formats that can carry pickled objects or executable code are never accepted in a
+# transformer payload; weights must be safetensors and remote code is never trusted.
+FORBIDDEN_TRANSFORMER_SUFFIXES = frozenset(
+    {
+        ".bin",
+        ".ckpt",
+        ".h5",
+        ".joblib",
+        ".npy",
+        ".npz",
+        ".pickle",
+        ".pkl",
+        ".pt",
+        ".pth",
+        ".py",
+        ".pyc",
+    }
+)
 _SHA256_HEX = re.compile(r"[0-9a-f]{64}")
+_PLAIN_FILENAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,254}")
+_HASH_CHUNK_BYTES = 1024 * 1024
 
 
 class ArtifactError(RuntimeError):
@@ -310,6 +332,148 @@ def load_classical_model(artifact_dir: Path, manifest: dict[str, Any]) -> Any:
         return joblib.load(io.BytesIO(payload))
     except Exception as error:
         raise ArtifactError("Classical model payload could not be deserialized") from error
+
+
+def hash_regular_file(path: Path) -> tuple[str, int]:
+    """Stream a regular file's SHA-256 and byte size without following links."""
+
+    digest = hashlib.sha256()
+    size = 0
+    try:
+        with open_regular_file(path) as handle:
+            for chunk in iter(lambda: handle.read(_HASH_CHUNK_BYTES), b""):
+                digest.update(chunk)
+                size += len(chunk)
+    except OSError as error:
+        raise ArtifactError(f"Payload file could not be read safely: {path}") from error
+    return digest.hexdigest(), size
+
+
+def _is_link(path: Path) -> bool:
+    return path.is_symlink() or path.is_junction()
+
+
+def _regular_payload_files(artifact_dir: Path, root: Path) -> dict[str, Path]:
+    """Map artifact-relative POSIX paths to regular files below root.
+
+    Links and special files are rejected rather than skipped so that nothing
+    unverified can sit inside a payload directory.
+    """
+
+    if _is_link(root):
+        raise ArtifactError("Transformer payload directory must not be a link")
+    if not root.exists():
+        return {}
+    files: dict[str, Path] = {}
+    for directory, dirnames, filenames in os.walk(root, followlinks=False):
+        current = Path(directory)
+        for name in dirnames:
+            if _is_link(current / name):
+                raise ArtifactError("Transformer payload contains a linked directory")
+        for name in filenames:
+            path = current / name
+            mode = path.lstat().st_mode
+            if stat.S_ISLNK(mode) or not stat.S_ISREG(mode):
+                raise ArtifactError("Transformer payload contains a link or special file")
+            files[path.relative_to(artifact_dir).as_posix()] = path
+    return files
+
+
+def _validate_transformer_path(value: object) -> str:
+    if not isinstance(value, str) or not value.startswith(TRANSFORMER_MODEL_PREFIX):
+        raise ArtifactError("Transformer payload path must be inside transformer/model/")
+    if "\\" in value or "\x00" in value or ":" in value:
+        raise ArtifactError("Transformer payload path contains unsafe characters")
+    if any(part in {"", ".", ".."} for part in value.split("/")):
+        raise ArtifactError("Transformer payload path is not normalized")
+    if Path(value).suffix.lower() in FORBIDDEN_TRANSFORMER_SUFFIXES:
+        raise ArtifactError("Transformer payload contains a pickle or code file type")
+    return value
+
+
+def _validate_shard_indexes(artifact_dir: Path, recorded: set[str]) -> None:
+    """Confine every sharded-checkpoint index to the verified file set.
+
+    accelerate through 1.15.0 (GHSA-4j2p-28q2-5m79) and transformers 5.19 join
+    ``weight_map`` values onto the checkpoint folder without validation, so a
+    crafted index can read files outside the artifact or block on a named pipe.
+    Each shard must therefore be a plain file name that resolves to a verified
+    regular file in the same folder.
+    """
+
+    for relative in sorted(recorded):
+        if not relative.endswith(".index.json"):
+            continue
+        payload = read_regular_file(
+            artifact_dir / relative,
+            MAX_SHARD_INDEX_BYTES,
+            "Sharded checkpoint index",
+        )
+        try:
+            index = json.loads(payload)
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise ArtifactError("Sharded checkpoint index is not valid JSON") from error
+        weight_map = index.get("weight_map") if isinstance(index, dict) else None
+        if not isinstance(weight_map, dict) or not weight_map:
+            raise ArtifactError("Sharded checkpoint index has no weight_map")
+        folder = relative.rsplit("/", 1)[0]
+        for shard in set(weight_map.values()):
+            if not isinstance(shard, str) or not _PLAIN_FILENAME.fullmatch(shard):
+                raise ArtifactError("Sharded checkpoint index references an unsafe shard path")
+            if f"{folder}/{shard}" not in recorded:
+                raise ArtifactError(
+                    "Sharded checkpoint index references a shard outside the verified payload"
+                )
+
+
+def build_transformer_file_manifest(artifact_dir: Path) -> dict[str, dict[str, Any]]:
+    """Record the SHA-256 and size of every transformer payload file, sorted by path."""
+
+    files = _regular_payload_files(artifact_dir, artifact_dir / "transformer")
+    if not files:
+        raise ArtifactError("Transformer payload is empty")
+    manifest: dict[str, dict[str, Any]] = {}
+    for relative in sorted(files):
+        _validate_transformer_path(relative)
+        digest, size = hash_regular_file(files[relative])
+        manifest[relative] = {"bytes": size, "sha256": digest}
+    _validate_shard_indexes(artifact_dir, set(manifest))
+    return manifest
+
+
+def verify_transformer_payload(artifact_dir: Path, manifest: dict[str, Any]) -> Path:
+    """Require the transformer directory to equal its recorded file set, byte for byte."""
+
+    recorded = manifest.get("transformer_files")
+    if not isinstance(recorded, dict) or not recorded:
+        raise ArtifactError("Model manifest does not record transformer file integrity")
+    expected: dict[str, tuple[str, int]] = {}
+    folded_paths: set[str] = set()
+    for path_value, record in recorded.items():
+        relative = _validate_transformer_path(path_value)
+        if relative.casefold() in folded_paths:
+            raise ArtifactError("Transformer manifest contains duplicate normalized paths")
+        folded_paths.add(relative.casefold())
+        digest = normalize_sha256(record.get("sha256")) if isinstance(record, dict) else None
+        size = record.get("bytes") if isinstance(record, dict) else None
+        if digest is None or isinstance(size, bool) or not isinstance(size, int) or size < 0:
+            raise ArtifactError("Transformer manifest entry is malformed")
+        expected[relative] = (digest, size)
+
+    actual = _regular_payload_files(artifact_dir, artifact_dir / "transformer")
+    if set(actual) != set(expected):
+        missing = len(set(expected) - set(actual))
+        unexpected = len(set(actual) - set(expected))
+        raise ArtifactError(
+            "Transformer payload file set does not match its manifest "
+            f"({missing} missing, {unexpected} unrecorded)"
+        )
+    for relative, (digest, size) in sorted(expected.items()):
+        actual_digest, actual_size = hash_regular_file(actual[relative])
+        if actual_size != size or not hmac.compare_digest(actual_digest, digest):
+            raise ArtifactError(f"Transformer payload checksum does not match: {relative}")
+    _validate_shard_indexes(artifact_dir, set(expected))
+    return artifact_dir / "transformer" / "model"
 
 
 def bind_latest(
