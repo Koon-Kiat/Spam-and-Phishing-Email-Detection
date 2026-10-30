@@ -65,7 +65,8 @@ Invoke-RestMethod `
 ```
 
 `GET /health` returns `200` with the loaded model version or `503` when no valid artifact
-can be loaded. Empty input returns `400`; oversized requests return `413`.
+can be loaded. A missing, corrupted, or tampered artifact produces the same `503` body;
+details appear only in the server log. Empty input returns `400`; oversized requests return `413`.
 
 ## Automated checks
 

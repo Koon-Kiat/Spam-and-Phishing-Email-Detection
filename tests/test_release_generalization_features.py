@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import struct
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -13,9 +14,21 @@ from spamandphishingdetection.datasets import file_sha256
 from spamandphishingdetection.evaluation import calibration_diagnostics
 from spamandphishingdetection.generalization import load_spaphish_v5
 from spamandphishingdetection.grouping import build_near_duplicate_groups
+from spamandphishingdetection.integrity import build_transformer_file_manifest
 from spamandphishingdetection.monitoring import monitor_batch
 from spamandphishingdetection.provenance import ProvenanceError, fetch_data
-from spamandphishingdetection.release import package_release, promote_artifact
+from spamandphishingdetection.release import (
+    ReleaseValidationError,
+    package_release,
+    promote_artifact,
+)
+
+_SAFETENSORS_HEADER = json.dumps(
+    {"classifier.weight": {"dtype": "F32", "shape": [1], "data_offsets": [0, 4]}}
+).encode()
+_FIXTURE_SAFETENSORS = (
+    struct.pack("<Q", len(_SAFETENSORS_HEADER)) + _SAFETENSORS_HEADER + b"\x00\x00\x80\x3f"
+)
 
 
 def test_near_duplicate_candidates_are_exactly_verified() -> None:
@@ -128,13 +141,32 @@ def test_spaphish_adapter_preserves_rows_and_prevalence(
     assert adapted["row_id"].str.startswith("spaphish:").all()
 
 
-def _write_release_artifact(config: ProjectConfig, run_id: str) -> Path:
+def _write_transformer_payload(artifact: Path) -> None:
+    model_dir = artifact / "transformer" / "model"
+    model_dir.mkdir(parents=True)
+    for name, content in (
+        ("config.json", b'{"model_type": "distilbert"}'),
+        ("model.safetensors", _FIXTURE_SAFETENSORS),
+        ("tokenizer.json", b'{"model": {"type": "WordPiece"}}'),
+        ("tokenizer_config.json", b'{"do_lower_case": true}'),
+    ):
+        (model_dir / name).write_bytes(content)
+
+
+def _write_release_artifact(
+    config: ProjectConfig,
+    run_id: str,
+    *,
+    backend: str = "classical",
+) -> Path:
     artifact = config.artifacts_dir / run_id
     report = config.reports_dir / run_id
     artifact.mkdir(parents=True)
     report.mkdir(parents=True)
-    model = artifact / "model.joblib"
-    model.write_bytes(b"fixture model payload")
+    if backend in {"classical", "ensemble"}:
+        (artifact / "model.joblib").write_bytes(b"fixture model payload")
+    if backend in {"transformer", "ensemble"}:
+        _write_transformer_payload(artifact)
     dataset_manifest = config.project_root / "config" / "datasets.v1.json"
     dataset_manifest.write_text('{"schema_version": 1}\n', encoding="utf-8")
     dependency_lock = config.project_root / "requirements.lock"
@@ -159,8 +191,7 @@ def _write_release_artifact(config: ProjectConfig, run_id: str) -> Path:
     manifest = {
         "schema_version": 2,
         "model_version": run_id,
-        "backend": "classical",
-        "model_sha256": file_sha256(model),
+        "backend": backend,
         "threshold": 0.5,
         "external_evaluation": {
             "dataset": "SpaPhish v5",
@@ -184,6 +215,10 @@ def _write_release_artifact(config: ProjectConfig, run_id: str) -> Path:
             },
         },
     }
+    if backend in {"classical", "ensemble"}:
+        manifest["model_sha256"] = file_sha256(artifact / "model.joblib")
+    if backend in {"transformer", "ensemble"}:
+        manifest["transformer_files"] = build_transformer_file_manifest(artifact)
     (artifact / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     (report / "external_evaluation.lock.json").write_text(
         json.dumps(
@@ -227,11 +262,11 @@ def test_monitoring_packaging_promotion_and_rollback(
         ),
         encoding="utf-8",
     )
+    promote_artifact(config, artifact=first)
     monitoring = monitor_batch(config, batch, artifact=first)
     assert monitoring["content_retained"] is False
     assert monitoring["status"] == "alert"
 
-    promote_artifact(config, artifact=first)
     promote_artifact(config, artifact=second)
     rolled_back = promote_artifact(config, rollback=True)
     assert rolled_back["artifact"] == "run-one"
@@ -249,3 +284,106 @@ def test_monitoring_packaging_promotion_and_rollback(
         assert any(name.endswith("/model.joblib") for name in names)
         assert any(name.endswith("/SHA256SUMS") for name in names)
         assert not any(name.endswith(".eml") for name in names)
+
+
+def test_promotion_binds_manifest_and_rollback_rejects_later_changes(
+    config_factory: Callable[..., ProjectConfig],
+) -> None:
+    config = config_factory()
+    first = _write_release_artifact(config, "run-one")
+    _write_release_artifact(config, "run-two")
+
+    promoted = promote_artifact(config, artifact=first)
+    assert promoted["manifest_sha256"] == file_sha256(first / "manifest.json")
+    promote_artifact(config, artifact="run-two")
+
+    manifest = json.loads((first / "manifest.json").read_text(encoding="utf-8"))
+    manifest["threshold"] = 0.01
+    (first / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ReleaseValidationError, match="changed after it was promoted"):
+        promote_artifact(config, rollback=True)
+    latest = json.loads((config.artifacts_dir / "latest.json").read_text(encoding="utf-8"))
+    assert latest["artifact"] == "run-two"
+
+
+def _write_release_documents(config: ProjectConfig) -> None:
+    for name in (
+        "MODEL_CARD.md",
+        "DATASET_NOTICES.md",
+        "MODEL_LICENSE.md",
+        "SECURITY.md",
+    ):
+        (config.project_root / name).write_text(f"# {name}\n", encoding="utf-8")
+
+
+@pytest.mark.parametrize("backend", ["transformer", "ensemble"])
+def test_transformer_release_packages_exactly_the_verified_file_set(
+    config_factory: Callable[..., ProjectConfig],
+    backend: str,
+) -> None:
+    config = config_factory()
+    artifact = _write_release_artifact(config, f"run-{backend}", backend=backend)
+    _write_release_documents(config)
+
+    promote_artifact(config, artifact=artifact)
+    packaged = package_release(config, artifact=artifact, output_dir="release-test")
+
+    manifest = json.loads((artifact / "manifest.json").read_text(encoding="utf-8"))
+    with zipfile.ZipFile(packaged["archive"]) as bundle:
+        names = {name.split("/", 1)[1] for name in bundle.namelist()}
+    assert set(manifest["transformer_files"]) <= names
+    assert ("model.joblib" in names) is (backend == "ensemble")
+    assert not any(name.startswith("transformer/checkpoints") for name in names)
+
+
+@pytest.mark.parametrize(
+    "tamper",
+    ["weights", "tokenizer", "config", "missing", "unrecorded", "top_level"],
+)
+def test_promotion_and_packaging_reject_tampered_transformer_payloads(
+    config_factory: Callable[..., ProjectConfig],
+    tamper: str,
+) -> None:
+    config = config_factory()
+    artifact = _write_release_artifact(config, "run-transformer", backend="transformer")
+    _write_release_documents(config)
+    model_dir = artifact / "transformer" / "model"
+    if tamper == "weights":
+        (model_dir / "model.safetensors").write_bytes(b"replaced weights")
+    elif tamper == "tokenizer":
+        (model_dir / "tokenizer.json").write_bytes(b'{"model": {"type": "BPE"}}')
+    elif tamper == "config":
+        (model_dir / "config.json").write_bytes(b'{"auto_map": {"AutoModel": "x.Model"}}')
+    elif tamper == "missing":
+        (model_dir / "tokenizer_config.json").unlink()
+    elif tamper == "unrecorded":
+        checkpoints = artifact / "transformer" / "checkpoints"
+        checkpoints.mkdir()
+        (checkpoints / "optimizer.json").write_bytes(b"{}")
+    else:
+        (artifact / "notes.txt").write_text("unexpected", encoding="utf-8")
+
+    with pytest.raises(ReleaseValidationError):
+        promote_artifact(config, artifact=artifact)
+    with pytest.raises(ReleaseValidationError):
+        package_release(config, artifact=artifact, output_dir="release-test")
+    assert not (config.artifacts_dir / "latest.json").exists()
+
+
+def test_promotion_rejects_raw_content_without_echoing_it(
+    config_factory: Callable[..., ProjectConfig],
+) -> None:
+    config = config_factory()
+    artifact = _write_release_artifact(config, "run-leaky")
+    sentence = b"Please review the attached invoice and confirm your payment today"
+    (artifact / "model.joblib").write_bytes(b"\x80\x05" + sentence)
+    manifest = json.loads((artifact / "manifest.json").read_text(encoding="utf-8"))
+    manifest["model_sha256"] = file_sha256(artifact / "model.joblib")
+    (artifact / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ReleaseValidationError, match="natural_language=1") as raised:
+        promote_artifact(config, artifact=artifact)
+
+    assert "invoice" not in str(raised.value)
+    assert not (config.artifacts_dir / "latest.json").exists()

@@ -28,6 +28,16 @@ def _add_config_argument(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_manifest_hash_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--manifest-sha256",
+        help=(
+            "Expected SHA-256 of the artifact's manifest.json. Required for artifacts "
+            "that are not bound by latest.json or promotion_history.json."
+        ),
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="spam-phishing",
@@ -74,6 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--artifact",
         help="Explicit artifact directory; defaults to artifacts/latest.json.",
     )
+    _add_manifest_hash_argument(predict_parser)
 
     report_parser = subparsers.add_parser(
         "report",
@@ -84,6 +95,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--artifact",
         help="Explicit artifact directory; defaults to artifacts/latest.json.",
     )
+    _add_manifest_hash_argument(report_parser)
 
     generalization_parser = subparsers.add_parser(
         "generalization-report",
@@ -91,11 +103,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_config_argument(generalization_parser)
     generalization_parser.add_argument("--artifact")
+    _add_manifest_hash_argument(generalization_parser)
     generalization_parser.add_argument("--external-path")
     generalization_parser.add_argument(
         "--skip-external",
         action="store_true",
-        help="Generate internal diagnostics only; release evidence requires external evaluation.",
+        help=(
+            "Write internal_* diagnostics that never modify release evidence. Locked "
+            "evidence is immutable; train a new artifact for a new evaluation."
+        ),
     )
 
     monitor_parser = subparsers.add_parser(
@@ -105,6 +121,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_config_argument(monitor_parser)
     monitor_parser.add_argument("--input", required=True, help="Input JSONL batch.")
     monitor_parser.add_argument("--artifact")
+    _add_manifest_hash_argument(monitor_parser)
     monitor_parser.add_argument("--output", help="Optional JSON report path.")
 
     promote_parser = subparsers.add_parser(
@@ -143,6 +160,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--artifact",
         help="Explicit artifact directory; defaults to artifacts/latest.json.",
     )
+    _add_manifest_hash_argument(serve_parser)
     serve_parser.add_argument("--host", help="Override the configured host.")
     serve_parser.add_argument("--port", type=int, help="Override the configured port.")
     return parser
@@ -190,7 +208,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "predict":
-        predictor = Predictor.load(config, args.artifact)
+        predictor = Predictor.load(
+            config,
+            args.artifact,
+            expected_manifest_sha256=args.manifest_sha256,
+        )
         message = Path(args.file).read_bytes()
         print(json.dumps(predictor.predict_eml(message).to_dict(), indent=2))
         return 0
@@ -199,6 +221,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = generate_diagnostic_report(
             config,
             artifact=args.artifact,
+            expected_manifest_sha256=args.manifest_sha256,
             output_dir=args.output,
             fractions=tuple(args.fractions),
         )
@@ -218,6 +241,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         path = generate_generalization_report(
             config,
             artifact=args.artifact,
+            expected_manifest_sha256=args.manifest_sha256,
             external_path=args.external_path,
             include_external=not args.skip_external,
         )
@@ -229,6 +253,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             config,
             Path(args.input),
             artifact=args.artifact,
+            expected_manifest_sha256=args.manifest_sha256,
         )
         rendered = json.dumps(report, indent=2)
         if args.output:
@@ -258,7 +283,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     if args.command == "serve":
-        app = create_app(config, artifact=args.artifact)
+        app = create_app(
+            config,
+            artifact=args.artifact,
+            expected_manifest_sha256=args.manifest_sha256,
+        )
         app.run(
             host=args.host or config.host,
             port=args.port or config.port,

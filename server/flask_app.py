@@ -17,6 +17,7 @@ def create_web_app(
     config: ProjectConfig | None = None,
     *,
     artifact: str | Path | None = None,
+    expected_manifest_sha256: str | None = None,
 ):
     """Create the browser interface and versioned prediction API."""
 
@@ -24,6 +25,7 @@ def create_web_app(
     application = create_app(
         resolved_config,
         artifact=artifact,
+        expected_manifest_sha256=expected_manifest_sha256,
         static_folder=STATIC_ROOT,
         template_folder=SERVER_ROOT / "templates",
     )

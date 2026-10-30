@@ -26,7 +26,7 @@ from sklearn.model_selection import train_test_split
 from .config import ProjectConfig
 from .datasets import create_dataset_splits, load_and_audit_datasets
 from .evaluation import evaluate_probabilities
-from .inference import resolve_artifact_dir
+from .integrity import load_trusted_manifest
 from .training import _calibration_folds, build_classical_candidate
 
 DEFAULT_LEARNING_FRACTIONS = (0.05, 0.10, 0.25, 0.50, 0.75, 1.00)
@@ -555,13 +555,17 @@ def generate_diagnostic_report(
     config: ProjectConfig,
     *,
     artifact: str | Path | None = None,
+    expected_manifest_sha256: str | None = None,
     output_dir: str | Path = "docs/images",
     fractions: tuple[float, ...] = DEFAULT_LEARNING_FRACTIONS,
 ) -> DiagnosticReport:
     """Generate learning-curve data and all model evaluation charts."""
 
-    artifact_dir = resolve_artifact_dir(config, artifact)
-    manifest = _read_json(artifact_dir / "manifest.json")
+    manifest = load_trusted_manifest(
+        config,
+        artifact,
+        expected_manifest_sha256=expected_manifest_sha256,
+    ).manifest
     run_id = str(manifest["model_version"])
     if manifest["backend"] != "classical":
         raise ValueError("Learning-curve generation currently requires a classical winner")

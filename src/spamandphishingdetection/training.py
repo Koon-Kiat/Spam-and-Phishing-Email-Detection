@@ -35,9 +35,11 @@ from .datasets import (
     load_and_audit_datasets,
 )
 from .evaluation import evaluate_probabilities, metrics_table, tune_threshold
+from .integrity import bind_latest, build_transformer_file_manifest
 from .privacy import scan_model_artifact
 
 LOGGER = logging.getLogger(__name__)
+VALIDATION_PREDICTIONS_FILE = "validation_predictions.csv"
 
 
 @dataclass
@@ -720,6 +722,71 @@ def _package_versions() -> dict[str, str]:
     return installed
 
 
+def _validation_evidence(
+    validation: pd.DataFrame,
+    selected: CandidateResult,
+    classical: CandidateResult,
+    transformer: CandidateResult | None,
+) -> pd.DataFrame:
+    """Freeze the selected candidate's validation predictions before any refit.
+
+    Every probability comes from models fitted on the training partition only. These
+    rows are the single authoritative source of validation metrics for transformer
+    and ensemble releases, because the final model also trains on validation rows.
+    """
+
+    evidence = pd.DataFrame(
+        {
+            "row_id": validation["row_id"].to_numpy(),
+            "label": validation["label"].astype(int).to_numpy(),
+            "probability": np.asarray(selected.probabilities, dtype=float),
+        }
+    )
+    if selected.backend == "ensemble":
+        if transformer is None:
+            raise RuntimeError("Transformer state is missing for selected ensemble")
+        evidence["classical_probability"] = np.asarray(classical.probabilities, dtype=float)
+        evidence["transformer_probability"] = np.asarray(transformer.probabilities, dtype=float)
+    return evidence
+
+
+def _metric_provenance(selected: CandidateResult) -> dict[str, Any]:
+    """Describe which fitted state produced each reported metric."""
+
+    validation_uses = ["model selection", "threshold tuning"]
+    if selected.backend in {"transformer", "ensemble"}:
+        validation_uses.extend(["early stopping", "epoch selection"])
+    if selected.backend == "ensemble":
+        validation_uses.append("ensemble weight selection")
+    return {
+        "validation": {
+            "partition": "validation",
+            "fitted_on": ["train"],
+            "fitted_state": "selected candidate before the final refit",
+            "predictions": VALIDATION_PREDICTIONS_FILE,
+            "used_for": validation_uses,
+            "note": "Out-of-sample for the model weights, but optimistic after selection.",
+        },
+        "untouched_test": {
+            "partition": "test",
+            "fitted_on": ["train", "validation"],
+            "fitted_state": "final refit after model, threshold, and weights were locked",
+            "used_for": ["held-out evaluation only"],
+        },
+    }
+
+
+def _remove_run_scratch(artifact_dir: Path, path: Path) -> None:
+    """Delete a scratch directory that must live inside the current run."""
+
+    if not path.exists():
+        return
+    resolved = path.resolve()
+    if artifact_dir.resolve() not in resolved.parents:
+        raise RuntimeError("Refusing to remove a directory outside the artifact run")
+    shutil.rmtree(resolved)
+
+
 def _save_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:
@@ -916,6 +983,15 @@ def run_training(
         else _select_with_tolerance(selectable, config.selection_tolerance)
     )
 
+    # Lock the selection evidence before anything is refitted on validation rows.
+    _validation_evidence(
+        splits.validation,
+        selected,
+        best_classical,
+        transformer_result,
+    ).to_csv(report_dir / VALIDATION_PREDICTIONS_FILE, index=False)
+    metric_provenance = _metric_provenance(selected)
+
     train_and_validation = pd.concat(
         [splits.train, splits.validation],
         ignore_index=True,
@@ -972,6 +1048,8 @@ def run_training(
             splits.test,
             config,
         )
+        # Trainer scratch output is not part of the inference payload.
+        _remove_run_scratch(artifact_dir, final_dir / "checkpoints")
 
     if selected.backend == "classical":
         test_probabilities = test_classical_probabilities
@@ -1019,6 +1097,7 @@ def run_training(
         "cross_source_diagnostic": cross_source,
         "grouped_cv_selection": grouped_cv_summary.to_dict(orient="records"),
         "transformer_error": transformer_error,
+        "metric_provenance": metric_provenance,
     }
     _save_json(report_dir / "metrics.json", report)
 
@@ -1029,6 +1108,7 @@ def run_training(
         "grouped_cv_folds.csv",
         "grouped_cv_summary.csv",
         "candidate_metrics.csv",
+        VALIDATION_PREDICTIONS_FILE,
         "metrics.json",
     )
     report_hashes = {
@@ -1036,6 +1116,13 @@ def run_training(
         for name in report_names
         if (report_dir / name).is_file()
     }
+    # Unselected candidate checkpoints must be gone before the payload is scanned.
+    _remove_run_scratch(artifact_dir, candidate_transformer_dir)
+    transformer_files = (
+        build_transformer_file_manifest(artifact_dir)
+        if selected.backend in {"transformer", "ensemble"}
+        else None
+    )
     privacy_scan = scan_model_artifact(artifact_dir)
     provenance_path = config.project_root / "config" / "datasets.v1.json"
     dependency_lock = config.project_root / "requirements.lock"
@@ -1056,6 +1143,7 @@ def run_training(
         "transformer_batch_size": config.transformer_batch_size,
         "ensemble": selected.metadata if selected.backend == "ensemble" else None,
         "test_metrics": test_metrics,
+        "metric_provenance": metric_provenance,
         "calibration": {
             "method": (
                 "group-aware sigmoid"
@@ -1094,21 +1182,11 @@ def run_training(
     }
     if (artifact_dir / "model.joblib").is_file():
         manifest["model_sha256"] = file_sha256(artifact_dir / "model.joblib")
+    if transformer_files is not None:
+        manifest["transformer_files"] = transformer_files
     _save_json(artifact_dir / "manifest.json", manifest)
 
-    latest = {
-        "artifact": artifact_dir.relative_to(config.artifacts_dir).as_posix(),
-        "updated_at": datetime.now(UTC).isoformat(),
-    }
-    temporary_latest = config.artifacts_dir / "latest.json.tmp"
-    _save_json(temporary_latest, latest)
-    temporary_latest.replace(config.artifacts_dir / "latest.json")
-
-    if candidate_transformer_dir.exists():
-        resolved_candidate = candidate_transformer_dir.resolve()
-        if artifact_dir.resolve() not in resolved_candidate.parents:
-            raise RuntimeError("Refusing to remove transformer candidate outside artifact run")
-        shutil.rmtree(resolved_candidate)
+    bind_latest(config, artifact_dir, action="train")
 
     return TrainingResult(
         artifact_dir=artifact_dir,
@@ -1204,12 +1282,7 @@ def finalize_completed_classical_run(
         ):
             raise ValueError(f"Recomputed untouched-test {metric_name} does not match")
 
-    candidate_transformer_dir = artifact_dir / ".transformer_candidate"
-    if candidate_transformer_dir.exists():
-        resolved_candidate = candidate_transformer_dir.resolve()
-        if artifact_dir.resolve() not in resolved_candidate.parents:
-            raise RuntimeError("Refusing to remove transformer candidate outside artifact run")
-        shutil.rmtree(resolved_candidate)
+    _remove_run_scratch(artifact_dir, artifact_dir / ".transformer_candidate")
 
     report_hashes = {
         name: file_sha256(report_dir / name)
@@ -1278,13 +1351,7 @@ def finalize_completed_classical_run(
     }
     _save_json(artifact_dir / "manifest.json", manifest)
 
-    latest = {
-        "artifact": artifact_dir.relative_to(config.artifacts_dir).as_posix(),
-        "updated_at": datetime.now(UTC).isoformat(),
-    }
-    temporary_latest = config.artifacts_dir / "latest.json.tmp"
-    _save_json(temporary_latest, latest)
-    temporary_latest.replace(config.artifacts_dir / "latest.json")
+    bind_latest(config, artifact_dir, action="train")
     return TrainingResult(
         artifact_dir=artifact_dir,
         report_dir=report_dir,

@@ -22,6 +22,7 @@ def create_app(
     *,
     config_path: str | Path = DEFAULT_CONFIG_PATH,
     artifact: str | Path | None = None,
+    expected_manifest_sha256: str | None = None,
     static_folder: str | Path | None = None,
     template_folder: str | Path | None = None,
 ) -> Flask:
@@ -36,9 +37,15 @@ def create_app(
     app.config["MAX_CONTENT_LENGTH"] = project_config.max_request_bytes
     predictor: Predictor | None = None
     try:
-        predictor = Predictor.load(project_config, artifact)
-    except ArtifactError as error:
-        LOGGER.warning("Prediction model is unavailable: %s", error)
+        predictor = Predictor.load(
+            project_config,
+            artifact,
+            expected_manifest_sha256=expected_manifest_sha256,
+        )
+    except ArtifactError:
+        # Integrity and deserialization details stay in operator logs; clients only
+        # ever receive the stable MODEL_UNAVAILABLE_ERROR response.
+        LOGGER.warning("Prediction model is unavailable", exc_info=True)
 
     def require_predictor() -> Predictor:
         if predictor is None:
