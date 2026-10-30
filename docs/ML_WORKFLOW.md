@@ -255,6 +255,38 @@ and restores the previous model atomically, refusing a manifest that changed sin
 was promoted. Inference verifies the manifest and payload against these records before
 any deserialization; artifacts without a record require `--manifest-sha256`.
 
+### Privacy scan
+
+Training, `promote`, and `package-release` all run the artifact privacy scan, and any
+finding blocks them. Every file except `manifest.json` is read in 1 MiB chunks with a
+512-byte overlap, so matches across chunk boundaries are found and memory does not grow
+with artifact size. Hidden files are scanned; links, special files, and files over 8 GiB
+fail without being opened.
+
+| Category | Detects |
+|---|---|
+| `email_address`, `url`, `phone_number` | Full identifiers that canonicalization should have masked |
+| `payment_card`, `iban`, `long_numeric_identifier` | Card numbers, IBANs, and runs of nine or more digits |
+| `credential_assignment` | `password=`, `api_key:`, bearer tokens, and similar |
+| `street_address` | A house number, one to three words, and a street suffix |
+| `natural_language` | Six or more consecutive alphabetic words |
+| `binary_printable_run` | A printable ASCII run over 256 bytes in a binary payload |
+| `malformed_structured_file`, `link`, `special_file`, `oversized_file`, `unreadable_file` | Payloads that cannot be scanned safely |
+
+JSON files are parsed so only keys and string values are scanned, which keeps settings
+such as `model_max_length` from looking like identifiers. Safetensors headers are parsed
+the same way and their tensor data is scanned as binary. `.txt` files are scanned as
+text, and everything else as binary. The release classical model's longest printable
+run is 88 bytes, well under the 256-byte limit.
+
+The `privacy_scan` manifest field (scan schema 2) records `status`, `files_scanned`,
+`hidden_files_scanned`, `bytes_scanned`, `longest_printable_run`, the `policy` limits,
+`finding_counts` for every category, and at most 50 `findings` of the form
+`{"category", "path", "offset"}`, with `findings_truncated` when there were more.
+Matched values are never stored, logged, or included in error messages.
+
+### Release package
+
 `package-release` copies only the recorded payload files and re-verifies the staged
 copies against the validated manifest before archiving. It includes only:
 

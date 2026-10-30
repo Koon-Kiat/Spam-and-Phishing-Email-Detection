@@ -107,8 +107,18 @@ versioned release.
 ## Ethical and privacy considerations
 
 Raw emails may contain personal, sensitive, explicit, or fraudulent content. This
-repository distributes no raw rows. Release artifacts undergo a full-email and long
-numeric identifier scan. Domain/campaign diagnostics use hashed IDs.
+repository distributes no raw rows. Training text is canonicalized first: email local
+parts, phone and account-like identifiers, and URL query values are masked. Before
+promotion and packaging, every artifact file is then scanned in bounded memory for
+email addresses, URLs, phone, card, IBAN, and long numeric identifiers, credential
+assignments, street addresses, runs of six or more prose words, and oversized printable
+runs in binary payloads. Any finding blocks the release; the scan reports categories,
+paths, and offsets but never the matched values. Domain/campaign diagnostics use hashed
+IDs.
+
+The scan reduces but cannot eliminate memorization risk. A TF-IDF vocabulary stores
+individual word and character n-grams from training text, and an isolated token such
+as a first name cannot be distinguished from ordinary vocabulary.
 
 ## License
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import struct
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -20,6 +21,13 @@ from spamandphishingdetection.release import (
     ReleaseValidationError,
     package_release,
     promote_artifact,
+)
+
+_SAFETENSORS_HEADER = json.dumps(
+    {"classifier.weight": {"dtype": "F32", "shape": [1], "data_offsets": [0, 4]}}
+).encode()
+_FIXTURE_SAFETENSORS = (
+    struct.pack("<Q", len(_SAFETENSORS_HEADER)) + _SAFETENSORS_HEADER + b"\x00\x00\x80\x3f"
 )
 
 
@@ -138,7 +146,7 @@ def _write_transformer_payload(artifact: Path) -> None:
     model_dir.mkdir(parents=True)
     for name, content in (
         ("config.json", b'{"model_type": "distilbert"}'),
-        ("model.safetensors", b"fixture weights"),
+        ("model.safetensors", _FIXTURE_SAFETENSORS),
         ("tokenizer.json", b'{"model": {"type": "WordPiece"}}'),
         ("tokenizer_config.json", b'{"do_lower_case": true}'),
     ):
@@ -360,4 +368,22 @@ def test_promotion_and_packaging_reject_tampered_transformer_payloads(
         promote_artifact(config, artifact=artifact)
     with pytest.raises(ReleaseValidationError):
         package_release(config, artifact=artifact, output_dir="release-test")
+    assert not (config.artifacts_dir / "latest.json").exists()
+
+
+def test_promotion_rejects_raw_content_without_echoing_it(
+    config_factory: Callable[..., ProjectConfig],
+) -> None:
+    config = config_factory()
+    artifact = _write_release_artifact(config, "run-leaky")
+    sentence = b"Please review the attached invoice and confirm your payment today"
+    (artifact / "model.joblib").write_bytes(b"\x80\x05" + sentence)
+    manifest = json.loads((artifact / "manifest.json").read_text(encoding="utf-8"))
+    manifest["model_sha256"] = file_sha256(artifact / "model.joblib")
+    (artifact / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ReleaseValidationError, match="natural_language=1") as raised:
+        promote_artifact(config, artifact=artifact)
+
+    assert "invoice" not in str(raised.value)
     assert not (config.artifacts_dir / "latest.json").exists()

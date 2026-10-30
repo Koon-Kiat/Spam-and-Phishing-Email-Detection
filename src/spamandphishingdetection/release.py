@@ -23,7 +23,7 @@ from .integrity import (
     sha256_bytes,
     verify_transformer_payload,
 )
-from .privacy import scan_model_artifact
+from .privacy import PrivacyScanError, scan_model_artifact
 
 
 class ReleaseValidationError(RuntimeError):
@@ -91,9 +91,10 @@ def validate_artifact(config: ProjectConfig, artifact: str | Path) -> dict[str, 
             verify_transformer_payload(path, manifest)
         except ArtifactError as error:
             raise ReleaseValidationError(str(error)) from error
-    scan = scan_model_artifact(path)
-    if scan["status"] != "passed":
-        raise ReleaseValidationError("Artifact privacy scan did not pass")
+    try:
+        scan = scan_model_artifact(path)
+    except PrivacyScanError as error:
+        raise ReleaseValidationError(str(error)) from error
 
     report_dir = config.reports_dir / path.name
     required_reports = (

@@ -23,6 +23,9 @@ release checksum bypass, and secret exposure.
 Model false positives and false negatives are expected safety limitations rather than
 software vulnerabilities unless they result from a reproducible security defect.
 
+Release gates also run a privacy scan over every artifact file; see
+[the ML workflow](docs/ML_WORKFLOW.md#privacy-scan) for what it detects and its limits.
+
 Only load model artifacts from this repository's checksum-verified GitHub Releases.
 Joblib/pickle artifacts can execute code while loading and must be treated as executable
 software.
