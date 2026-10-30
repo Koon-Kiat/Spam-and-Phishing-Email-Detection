@@ -35,6 +35,7 @@ from .datasets import (
     load_and_audit_datasets,
 )
 from .evaluation import evaluate_probabilities, metrics_table, tune_threshold
+from .integrity import bind_latest
 from .privacy import scan_model_artifact
 
 LOGGER = logging.getLogger(__name__)
@@ -1096,13 +1097,7 @@ def run_training(
         manifest["model_sha256"] = file_sha256(artifact_dir / "model.joblib")
     _save_json(artifact_dir / "manifest.json", manifest)
 
-    latest = {
-        "artifact": artifact_dir.relative_to(config.artifacts_dir).as_posix(),
-        "updated_at": datetime.now(UTC).isoformat(),
-    }
-    temporary_latest = config.artifacts_dir / "latest.json.tmp"
-    _save_json(temporary_latest, latest)
-    temporary_latest.replace(config.artifacts_dir / "latest.json")
+    bind_latest(config, artifact_dir, action="train")
 
     if candidate_transformer_dir.exists():
         resolved_candidate = candidate_transformer_dir.resolve()
@@ -1278,13 +1273,7 @@ def finalize_completed_classical_run(
     }
     _save_json(artifact_dir / "manifest.json", manifest)
 
-    latest = {
-        "artifact": artifact_dir.relative_to(config.artifacts_dir).as_posix(),
-        "updated_at": datetime.now(UTC).isoformat(),
-    }
-    temporary_latest = config.artifacts_dir / "latest.json.tmp"
-    _save_json(temporary_latest, latest)
-    temporary_latest.replace(config.artifacts_dir / "latest.json")
+    bind_latest(config, artifact_dir, action="train")
     return TrainingResult(
         artifact_dir=artifact_dir,
         report_dir=report_dir,

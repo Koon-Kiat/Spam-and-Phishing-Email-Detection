@@ -15,7 +15,11 @@ from spamandphishingdetection.generalization import load_spaphish_v5
 from spamandphishingdetection.grouping import build_near_duplicate_groups
 from spamandphishingdetection.monitoring import monitor_batch
 from spamandphishingdetection.provenance import ProvenanceError, fetch_data
-from spamandphishingdetection.release import package_release, promote_artifact
+from spamandphishingdetection.release import (
+    ReleaseValidationError,
+    package_release,
+    promote_artifact,
+)
 
 
 def test_near_duplicate_candidates_are_exactly_verified() -> None:
@@ -227,11 +231,11 @@ def test_monitoring_packaging_promotion_and_rollback(
         ),
         encoding="utf-8",
     )
+    promote_artifact(config, artifact=first)
     monitoring = monitor_batch(config, batch, artifact=first)
     assert monitoring["content_retained"] is False
     assert monitoring["status"] == "alert"
 
-    promote_artifact(config, artifact=first)
     promote_artifact(config, artifact=second)
     rolled_back = promote_artifact(config, rollback=True)
     assert rolled_back["artifact"] == "run-one"
@@ -249,3 +253,24 @@ def test_monitoring_packaging_promotion_and_rollback(
         assert any(name.endswith("/model.joblib") for name in names)
         assert any(name.endswith("/SHA256SUMS") for name in names)
         assert not any(name.endswith(".eml") for name in names)
+
+
+def test_promotion_binds_manifest_and_rollback_rejects_later_changes(
+    config_factory: Callable[..., ProjectConfig],
+) -> None:
+    config = config_factory()
+    first = _write_release_artifact(config, "run-one")
+    _write_release_artifact(config, "run-two")
+
+    promoted = promote_artifact(config, artifact=first)
+    assert promoted["manifest_sha256"] == file_sha256(first / "manifest.json")
+    promote_artifact(config, artifact="run-two")
+
+    manifest = json.loads((first / "manifest.json").read_text(encoding="utf-8"))
+    manifest["threshold"] = 0.01
+    (first / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(ReleaseValidationError, match="changed after it was promoted"):
+        promote_artifact(config, rollback=True)
+    latest = json.loads((config.artifacts_dir / "latest.json").read_text(encoding="utf-8"))
+    assert latest["artifact"] == "run-two"

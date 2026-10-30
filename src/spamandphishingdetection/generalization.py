@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import html
 import json
@@ -17,7 +18,8 @@ from .config import ProjectConfig
 from .datasets import create_dataset_splits, file_sha256, load_and_audit_datasets
 from .evaluation import evaluate_probabilities
 from .grouping import add_message_metadata
-from .inference import Predictor, resolve_artifact_dir
+from .inference import Predictor
+from .integrity import bind_latest, trusted_manifest_record
 from .preprocessing import prepare_text
 from .training import (
     _calibration_folds,
@@ -258,15 +260,23 @@ def generate_generalization_report(
     config: ProjectConfig,
     *,
     artifact: str | Path | None = None,
+    expected_manifest_sha256: str | None = None,
     external_path: str | Path | None = None,
     include_external: bool = True,
 ) -> Path:
     """Generate post-lock grouped, calibration, drift, and robustness evidence."""
 
-    artifact_dir = resolve_artifact_dir(config, artifact)
-    predictor = Predictor.load(config, artifact_dir)
+    predictor = Predictor.load(
+        config,
+        artifact,
+        expected_manifest_sha256=expected_manifest_sha256,
+    )
+    artifact_dir = predictor.artifact_dir
     manifest_path = artifact_dir / "manifest.json"
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = copy.deepcopy(predictor.manifest)
+    latest_bound = (
+        trusted_manifest_record(config, artifact_dir) == (predictor.manifest_sha256, "latest.json")
+    )
     run_id = str(manifest["model_version"])
     report_dir = config.reports_dir / run_id
     report_dir.mkdir(parents=True, exist_ok=True)
@@ -445,7 +455,7 @@ def generate_generalization_report(
     if include_external:
         lock = {
             "artifact": run_id,
-            "artifact_manifest_sha256_before_report": file_sha256(manifest_path),
+            "artifact_manifest_sha256_before_report": predictor.manifest_sha256,
             "external_sha256": payload["external"]["sha256"],
             "evaluated_at": payload["generated_at"],
             "report_sha256": file_sha256(output_path),
@@ -468,4 +478,6 @@ def generate_generalization_report(
         encoding="utf-8",
     )
     temporary_manifest.replace(manifest_path)
+    if latest_bound:
+        bind_latest(config, artifact_dir, action="report")
     return output_path

@@ -8,12 +8,20 @@ import os
 import shutil
 import tempfile
 import zipfile
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from .config import ProjectConfig
 from .datasets import file_sha256
+from .integrity import (
+    MAX_MANIFEST_BYTES,
+    ArtifactError,
+    atomic_write_json,
+    bind_latest,
+    promotion_history,
+    read_regular_file,
+    sha256_bytes,
+)
 from .privacy import scan_model_artifact
 
 
@@ -39,9 +47,15 @@ def validate_artifact(config: ProjectConfig, artifact: str | Path) -> dict[str, 
 
     path = _artifact_path(config, artifact)
     manifest_path = path / "manifest.json"
-    if not manifest_path.is_file():
-        raise ReleaseValidationError(f"Model manifest not found: {manifest_path}")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    try:
+        manifest_bytes = read_regular_file(manifest_path, MAX_MANIFEST_BYTES, "Model manifest")
+        manifest = json.loads(manifest_bytes)
+    except ArtifactError as error:
+        raise ReleaseValidationError(str(error)) from error
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ReleaseValidationError("Model manifest is not valid JSON") from error
+    if not isinstance(manifest, dict):
+        raise ReleaseValidationError("Model manifest must be a JSON object")
     if manifest.get("schema_version") != 2:
         raise ReleaseValidationError("Public promotion requires manifest schema version 2")
     if manifest.get("model_version") != path.name:
@@ -100,14 +114,12 @@ def validate_artifact(config: ProjectConfig, artifact: str | Path) -> dict[str, 
         record = manifest.get(manifest_key, {})
         if not repository_path.is_file() or file_sha256(repository_path) != record.get("sha256"):
             raise ReleaseValidationError(f"{manifest_key} checksum does not match")
-    return {"artifact_dir": path, "manifest": manifest, "privacy_scan": scan}
-
-
-def _atomic_json(path: Path, payload: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-    os.replace(temporary, path)
+    return {
+        "artifact_dir": path,
+        "manifest": manifest,
+        "manifest_sha256": sha256_bytes(manifest_bytes),
+        "privacy_scan": scan,
+    }
 
 
 def promote_artifact(
@@ -119,15 +131,16 @@ def promote_artifact(
     """Atomically promote a validated artifact or roll back to the prior promotion."""
 
     history_path = config.artifacts_dir / "promotion_history.json"
-    history = (
-        json.loads(history_path.read_text(encoding="utf-8"))
-        if history_path.is_file()
-        else []
-    )
+    try:
+        history = promotion_history(config)
+    except ArtifactError as error:
+        raise ReleaseValidationError(str(error)) from error
+    expected_rollback_hash = None
     if rollback:
         if len(history) < 2:
             raise ReleaseValidationError("No prior promoted artifact is available for rollback")
         target = history[-2]["artifact"]
+        expected_rollback_hash = history[-2].get("manifest_sha256")
         action = "rollback"
     else:
         if artifact is None:
@@ -136,14 +149,20 @@ def promote_artifact(
         action = "promote"
     validated = validate_artifact(config, target)
     artifact_dir = validated["artifact_dir"]
-    latest = {
-        "artifact": artifact_dir.relative_to(config.artifacts_dir).as_posix(),
-        "updated_at": datetime.now(UTC).isoformat(),
-        "action": action,
-    }
-    _atomic_json(config.artifacts_dir / "latest.json", latest)
-    history.append({**latest, "manifest_sha256": file_sha256(artifact_dir / "manifest.json")})
-    _atomic_json(history_path, history)
+    if expected_rollback_hash is not None and (
+        validated["manifest_sha256"] != expected_rollback_hash
+    ):
+        raise ReleaseValidationError(
+            "Rollback target manifest changed after it was promoted; refusing to restore it"
+        )
+    latest = bind_latest(
+        config,
+        artifact_dir,
+        action=action,
+        manifest_sha256=validated["manifest_sha256"],
+    )
+    history.append(latest)
+    atomic_write_json(history_path, history)
     return latest
 
 

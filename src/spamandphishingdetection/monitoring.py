@@ -14,7 +14,7 @@ import numpy as np
 
 from .config import ProjectConfig
 from .evaluation import evaluate_probabilities
-from .inference import resolve_artifact_dir
+from .integrity import load_trusted_manifest
 
 _FORBIDDEN_CONTENT_KEYS = {
     "text",
@@ -97,11 +97,15 @@ def monitor_batch(
     batch_path: Path,
     *,
     artifact: str | Path | None = None,
+    expected_manifest_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Compare a content-free batch with the schema-2 monitoring baseline."""
 
-    artifact_dir = resolve_artifact_dir(config, artifact)
-    manifest = json.loads((artifact_dir / "manifest.json").read_text(encoding="utf-8"))
+    manifest = load_trusted_manifest(
+        config,
+        artifact,
+        expected_manifest_sha256=expected_manifest_sha256,
+    ).manifest
     baseline = manifest.get("monitoring_baseline")
     if not baseline:
         raise ValueError("Artifact does not contain a schema-2 monitoring baseline")

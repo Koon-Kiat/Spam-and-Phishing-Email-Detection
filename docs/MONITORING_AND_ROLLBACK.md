@@ -52,8 +52,10 @@ python -m spamandphishingdetection promote --artifact <run-id>
 ```
 
 Promotion requires manifest schema 2, matching model checksum, privacy clearance, full
-reports, and locked external evaluation. `latest.json` is replaced atomically and the
-event is recorded in `promotion_history.json`.
+reports, and locked external evaluation. `latest.json` is replaced atomically with the
+validated `manifest_sha256`, and the same record is appended to
+`promotion_history.json`. Loading verifies the manifest and payload against that record
+before deserializing anything; see the trust model in [SECURITY.md](../SECURITY.md).
 
 ## Rollback
 
@@ -61,8 +63,8 @@ event is recorded in `promotion_history.json`.
 python -m spamandphishingdetection promote --rollback
 ```
 
-Rollback revalidates the previous artifact before atomically restoring it. After a
-rollback:
+Rollback revalidates the previous artifact and refuses it if its manifest changed after
+that promotion was recorded, before atomically restoring it. After a rollback:
 
 1. confirm `/health` reports the expected model version;
 2. run a known safe and known phishing smoke case;

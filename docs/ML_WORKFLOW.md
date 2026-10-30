@@ -229,8 +229,11 @@ See [monitoring and rollback](MONITORING_AND_ROLLBACK.md).
 ## 11. Promotion and release
 
 `promote` validates schema 2, payload hashes, report completeness, external lock, and the
-artifact privacy scan before atomically updating `latest.json`. Every promotion is added
-to a history file; `--rollback` revalidates and restores the previous model atomically.
+artifact privacy scan before atomically updating `latest.json` with the validated
+manifest SHA-256. Every promotion is added to a history file; `--rollback` revalidates
+and restores the previous model atomically, refusing a manifest that changed since it
+was promoted. Inference verifies the manifest and payload against these records before
+any deserialization; artifacts without a record require `--manifest-sha256`.
 
 `package-release` includes only:
 
