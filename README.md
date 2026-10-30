@@ -34,7 +34,7 @@ as an advisory research baseline—not as an automatic blocker. See the
 
 ## Quick start
 
-Python 3.14.6 is required.
+Python 3.15.2 is required.
 
 ```powershell
 python -m venv .venv
