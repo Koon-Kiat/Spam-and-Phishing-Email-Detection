@@ -108,7 +108,10 @@ def build_parser() -> argparse.ArgumentParser:
     generalization_parser.add_argument(
         "--skip-external",
         action="store_true",
-        help="Generate internal diagnostics only; release evidence requires external evaluation.",
+        help=(
+            "Write internal_* diagnostics that never modify release evidence. Locked "
+            "evidence is immutable; train a new artifact for a new evaluation."
+        ),
     )
 
     monitor_parser = subparsers.add_parser(

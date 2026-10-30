@@ -19,7 +19,15 @@ from .datasets import create_dataset_splits, file_sha256, load_and_audit_dataset
 from .evaluation import evaluate_probabilities
 from .grouping import add_message_metadata
 from .inference import Predictor
-from .integrity import bind_latest, trusted_manifest_record
+from .integrity import (
+    MAX_MANIFEST_BYTES,
+    canonical_json_bytes,
+    commit_file_group,
+    latest_record,
+    read_regular_file,
+    sha256_bytes,
+    trusted_manifest_record,
+)
 from .preprocessing import prepare_text
 from .training import (
     _calibration_folds,
@@ -28,6 +36,15 @@ from .training import (
 )
 
 _URL = re.compile(r"https?://[^\s<>'\"]+", re.IGNORECASE)
+RELEASE_EVIDENCE_FILES = ("generalization_report.json", "reliability_diagram.svg")
+INTERNAL_DIAGNOSTIC_FILES = (
+    "internal_generalization_report.json",
+    "internal_reliability_diagram.svg",
+)
+
+
+class EvaluationLockedError(RuntimeError):
+    """Raised when release evidence for an artifact has already been locked."""
 
 
 def load_spaphish_v5(path: Path, config: ProjectConfig) -> pd.DataFrame:
@@ -264,27 +281,29 @@ def generate_generalization_report(
     external_path: str | Path | None = None,
     include_external: bool = True,
 ) -> Path:
-    """Generate post-lock grouped, calibration, drift, and robustness evidence."""
+    """Generate post-lock grouped, calibration, drift, and robustness evidence.
+
+    With ``include_external`` the one-time blind evaluation runs and its release
+    evidence (report, reliability diagram, manifest hashes, and lock) is committed as
+    one transaction. Without it, internal diagnostics are written to separate
+    ``internal_*`` files that never modify release evidence, before or after a lock.
+    """
 
     predictor = Predictor.load(
         config,
         artifact,
         expected_manifest_sha256=expected_manifest_sha256,
     )
-    artifact_dir = predictor.artifact_dir
-    manifest_path = artifact_dir / "manifest.json"
-    manifest = copy.deepcopy(predictor.manifest)
-    latest_bound = (
-        trusted_manifest_record(config, artifact_dir) == (predictor.manifest_sha256, "latest.json")
-    )
-    run_id = str(manifest["model_version"])
+    run_id = str(predictor.manifest["model_version"])
     report_dir = config.reports_dir / run_id
-    report_dir.mkdir(parents=True, exist_ok=True)
     lock_path = report_dir / "external_evaluation.lock.json"
     if include_external and lock_path.exists():
-        raise RuntimeError(
-            "External evaluation is already locked for this artifact; refusing to run it again"
+        raise EvaluationLockedError(
+            "External evaluation is already locked for this artifact. Locked evidence is "
+            "immutable: train a new artifact to start a new versioned evaluation, or use "
+            "--skip-external for internal diagnostics."
         )
+    report_dir.mkdir(parents=True, exist_ok=True)
 
     audited = load_and_audit_datasets(config)
     splits = create_dataset_splits(audited.dataframe, config)
@@ -299,7 +318,7 @@ def generate_generalization_report(
     validation_probabilities: np.ndarray
     validation_model = None
     if predictor.backend == "classical":
-        selected_name = str(manifest["selected_model"])
+        selected_name = str(predictor.manifest["selected_model"])
         validation_model = build_classical_candidate(
             selected_name,
             config,
@@ -444,40 +463,97 @@ def generate_generalization_report(
         }
         reliability_metrics["External SpaPhish v5"] = external_metrics
 
-    output_path = report_dir / "generalization_report.json"
-    output_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-    reliability_path = report_dir / "reliability_diagram.svg"
-    reliability_path.write_text(
-        _reliability_svg(reliability_metrics),
-        encoding="utf-8",
+    payload["evidence_scope"] = (
+        "release_evidence" if include_external else "internal_diagnostic"
+    )
+    report_bytes = json.dumps(payload, indent=2, sort_keys=True).encode("utf-8")
+    diagram_bytes = _reliability_svg(reliability_metrics).encode("utf-8")
+    if not include_external:
+        report_name, diagram_name = INTERNAL_DIAGNOSTIC_FILES
+        commit_file_group(
+            [(report_dir / report_name, report_bytes), (report_dir / diagram_name, diagram_bytes)]
+        )
+        return report_dir / report_name
+
+    return _commit_release_evidence(
+        config,
+        predictor,
+        report_dir,
+        report_bytes=report_bytes,
+        diagram_bytes=diagram_bytes,
+        external_sha256=payload["external"]["sha256"],
+        evaluated_at=payload["generated_at"],
     )
 
-    if include_external:
-        lock = {
-            "artifact": run_id,
-            "artifact_manifest_sha256_before_report": predictor.manifest_sha256,
-            "external_sha256": payload["external"]["sha256"],
-            "evaluated_at": payload["generated_at"],
-            "report_sha256": file_sha256(output_path),
-        }
-        lock_path.write_text(json.dumps(lock, indent=2), encoding="utf-8")
+
+def _commit_release_evidence(
+    config: ProjectConfig,
+    predictor: Predictor,
+    report_dir: Path,
+    *,
+    report_bytes: bytes,
+    diagram_bytes: bytes,
+    external_sha256: str,
+    evaluated_at: str,
+) -> Path:
+    """Write report, diagram, manifest, pointer, and lock as one logical update."""
+
+    artifact_dir = predictor.artifact_dir
+    manifest_path = artifact_dir / "manifest.json"
+    report_name, diagram_name = RELEASE_EVIDENCE_FILES
+    lock_path = report_dir / "external_evaluation.lock.json"
+    report_sha256 = sha256_bytes(report_bytes)
+    diagram_sha256 = sha256_bytes(diagram_bytes)
+
+    manifest = copy.deepcopy(predictor.manifest)
     manifest.setdefault("report_hashes", {})
-    manifest["report_hashes"]["generalization_report.json"] = file_sha256(output_path)
-    manifest["report_hashes"]["reliability_diagram.svg"] = file_sha256(reliability_path)
-    if include_external:
-        manifest["external_evaluation"] = {
-            "dataset": "SpaPhish v5",
-            "dataset_sha256": payload["external"]["sha256"],
-            "evaluated_at": payload["generated_at"],
-            "report_sha256": file_sha256(output_path),
-            "used_for_selection": False,
-        }
-    temporary_manifest = manifest_path.with_suffix(".json.tmp")
-    temporary_manifest.write_text(
-        json.dumps(manifest, indent=2, sort_keys=True),
-        encoding="utf-8",
-    )
-    temporary_manifest.replace(manifest_path)
-    if latest_bound:
-        bind_latest(config, artifact_dir, action="report")
-    return output_path
+    manifest["report_hashes"][report_name] = report_sha256
+    manifest["report_hashes"][diagram_name] = diagram_sha256
+    manifest["external_evaluation"] = {
+        "dataset": "SpaPhish v5",
+        "dataset_sha256": external_sha256,
+        "evaluated_at": evaluated_at,
+        "reliability_diagram_sha256": diagram_sha256,
+        "report_sha256": report_sha256,
+        "used_for_selection": False,
+    }
+    manifest_bytes = canonical_json_bytes(manifest)
+    manifest_sha256 = sha256_bytes(manifest_bytes)
+    lock = {
+        "artifact": str(manifest["model_version"]),
+        "artifact_manifest_sha256": manifest_sha256,
+        "artifact_manifest_sha256_before_report": predictor.manifest_sha256,
+        "evaluated_at": evaluated_at,
+        "external_sha256": external_sha256,
+        "reliability_diagram_sha256": diagram_sha256,
+        "report_sha256": report_sha256,
+    }
+
+    writes = [
+        (report_dir / report_name, report_bytes),
+        (report_dir / diagram_name, diagram_bytes),
+        (manifest_path, manifest_bytes),
+    ]
+    if trusted_manifest_record(config, artifact_dir) == (
+        predictor.manifest_sha256,
+        "latest.json",
+    ):
+        latest = latest_record(
+            config,
+            artifact_dir,
+            action="external_evaluation",
+            manifest_sha256=manifest_sha256,
+        )
+        writes.append((config.artifacts_dir / "latest.json", canonical_json_bytes(latest)))
+    # The lock is written last: its presence certifies the whole evidence set.
+    writes.append((lock_path, canonical_json_bytes(lock)))
+
+    def unchanged_since_evaluation() -> None:
+        if lock_path.exists():
+            raise EvaluationLockedError("External evaluation was locked by another process")
+        current = read_regular_file(manifest_path, MAX_MANIFEST_BYTES, "Model manifest")
+        if sha256_bytes(current) != predictor.manifest_sha256:
+            raise RuntimeError("Artifact manifest changed during evaluation; nothing was written")
+
+    commit_file_group(writes, precondition=unchanged_since_evaluation)
+    return report_dir / report_name

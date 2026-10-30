@@ -199,7 +199,13 @@ The locked model evaluates all rows at their observed prevalence. Reports includ
 
 The prevalence is explicitly not claimed to represent every production inbox.
 `external_evaluation.lock.json` prevents accidental repeated use of external evidence
-for iterative tuning.
+for iterative tuning. The report, reliability diagram, manifest hashes, `latest.json`
+binding, and lock are committed as one transaction: files are staged and verified,
+the lock is written last, and any failure restores the previous state. The lock binds
+the report, diagram, and resulting manifest, so later edits block promotion. Locked
+evidence is never regenerated; `--skip-external` writes separate
+`internal_generalization_report.json` and `internal_reliability_diagram.svg`, and a new
+evaluation requires training a new artifact version.
 
 For release run `20260725T101318Z`, the blind result is 48.87% macro F1, 96.99%
 phishing recall, 55.96% phishing precision, and an 84.04% false-positive rate. This is

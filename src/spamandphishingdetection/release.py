@@ -133,6 +133,16 @@ def validate_artifact(config: ProjectConfig, artifact: str | Path) -> dict[str, 
         or external.get("used_for_selection") is not False
     ):
         raise ReleaseValidationError("External evaluation lock does not match the manifest")
+    # Locks written by the transactional evaluation also bind the diagram and the
+    # resulting manifest, so any later edit to locked evidence is detected.
+    if "reliability_diagram_sha256" in lock and (
+        lock["reliability_diagram_sha256"] != report_hashes["reliability_diagram.svg"]
+    ):
+        raise ReleaseValidationError("External evaluation lock does not match the diagram")
+    if "artifact_manifest_sha256" in lock and (
+        lock["artifact_manifest_sha256"] != sha256_bytes(manifest_bytes)
+    ):
+        raise ReleaseValidationError("Manifest changed after the external evaluation was locked")
     for manifest_key, repository_path in (
         ("dataset_manifest", config.project_root / "config" / "datasets.v1.json"),
         ("dependency_lock", config.project_root / "requirements.lock"),

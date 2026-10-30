@@ -17,8 +17,10 @@ import json
 import math
 import os
 import re
+import shutil
 import stat
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -476,6 +478,80 @@ def verify_transformer_payload(artifact_dir: Path, manifest: dict[str, Any]) -> 
     return artifact_dir / "transformer" / "model"
 
 
+def commit_file_group(
+    writes: list[tuple[Path, bytes]],
+    *,
+    precondition: Callable[[], None] | None = None,
+) -> None:
+    """Replace several files as one logical unit, restoring all of them on failure.
+
+    Every new file is written and read back as a verified temporary file before any
+    target changes. ``precondition`` runs after staging and before the first
+    replacement. Targets are then replaced in order, so the last entry acts as the
+    commit marker; any failure restores every earlier target from its backup.
+    """
+
+    token = uuid.uuid4().hex
+    staged: list[tuple[Path, Path]] = []
+    replaced: list[tuple[Path, Path | None]] = []
+    try:
+        for target, payload in writes:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            temporary = target.with_name(f".{target.name}.{token}.tmp")
+            staged.append((target, temporary))
+            with temporary.open("xb") as handle:
+                handle.write(payload)
+                handle.flush()
+                os.fsync(handle.fileno())
+            if hash_regular_file(temporary)[0] != sha256_bytes(payload):
+                raise ArtifactError(f"Staged file failed checksum verification: {target.name}")
+        if precondition is not None:
+            precondition()
+        for target, temporary in staged:
+            backup = None
+            if target.exists():
+                backup = target.with_name(f".{target.name}.{token}.bak")
+                shutil.copy2(target, backup)
+            replaced.append((target, backup))
+            os.replace(temporary, target)
+    except BaseException:
+        for target, backup in reversed(replaced):
+            if backup is not None:
+                os.replace(backup, target)
+            else:
+                target.unlink(missing_ok=True)
+        raise
+    finally:
+        for _target, temporary in staged:
+            temporary.unlink(missing_ok=True)
+        for _target, backup in replaced:
+            if backup is not None:
+                backup.unlink(missing_ok=True)
+
+
+def latest_record(
+    config: ProjectConfig,
+    artifact_dir: Path,
+    *,
+    action: str,
+    manifest_sha256: str,
+) -> dict[str, Any]:
+    """Build the latest.json record that binds an artifact to its manifest bytes."""
+
+    name = registry_name(config, artifact_dir)
+    digest = normalize_sha256(manifest_sha256)
+    if name is None:
+        raise ArtifactError("Only artifacts inside the artifacts directory can be published")
+    if digest is None:
+        raise ArtifactError("A manifest SHA-256 is required to publish an artifact")
+    return {
+        "action": action,
+        "artifact": name,
+        "manifest_sha256": digest,
+        "updated_at": datetime.now(UTC).isoformat(),
+    }
+
+
 def bind_latest(
     config: ProjectConfig,
     artifact_dir: Path,
@@ -485,19 +561,9 @@ def bind_latest(
 ) -> dict[str, Any]:
     """Atomically point latest.json at an artifact and bind its manifest bytes."""
 
-    name = registry_name(config, artifact_dir)
-    if name is None:
-        raise ArtifactError("Only artifacts inside the artifacts directory can be published")
-    digest = normalize_sha256(manifest_sha256) if manifest_sha256 else None
-    if digest is None:
-        digest = sha256_bytes(
-            read_regular_file(artifact_dir / "manifest.json", MAX_MANIFEST_BYTES, "Model manifest")
-        )
-    latest = {
-        "action": action,
-        "artifact": name,
-        "manifest_sha256": digest,
-        "updated_at": datetime.now(UTC).isoformat(),
-    }
+    digest = manifest_sha256 or sha256_bytes(
+        read_regular_file(artifact_dir / "manifest.json", MAX_MANIFEST_BYTES, "Model manifest")
+    )
+    latest = latest_record(config, artifact_dir, action=action, manifest_sha256=digest)
     atomic_write_json(config.artifacts_dir / "latest.json", latest)
     return latest
