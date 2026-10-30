@@ -126,8 +126,10 @@ See [ML workflow](docs/ML_WORKFLOW.md) and the generated model
 python -m spamandphishingdetection monitor --input batch.jsonl
 ```
 
-Message-content fields are rejected. Domain values are hashed before aggregation. See
-[monitoring and retraining](docs/MONITORING_AND_ROLLBACK.md).
+Slices accept only allowlisted scalar categories and hashed IDs; raw domains and
+campaign names are hashed before aggregation. Content fields, free text, nested values,
+and labels inconsistent with the model threshold are rejected without echoing input.
+See [monitoring and retraining](docs/MONITORING_AND_ROLLBACK.md) for the exact schema.
 
 ## Development checks
 

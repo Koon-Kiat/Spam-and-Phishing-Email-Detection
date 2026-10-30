@@ -2,24 +2,34 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import asdict, dataclass
 from email import policy
 from email.parser import BytesParser
 from pathlib import Path
 from typing import Any
 
-import joblib
 import numpy as np
 from bs4 import BeautifulSoup
 
 from .config import ProjectConfig
+from .integrity import (
+    ArtifactError,
+    load_classical_model,
+    load_trusted_manifest,
+    resolve_artifact_dir,
+    validate_manifest_fields,
+    verify_transformer_payload,
+)
 from .preprocessing import prepare_text
 from .training import _head_tail_token_ids, configure_runtime_cache
 
-
-class ArtifactError(RuntimeError):
-    """Raised when a deployable artifact cannot be found or loaded."""
+__all__ = [
+    "ArtifactError",
+    "Prediction",
+    "Predictor",
+    "extract_text_from_eml",
+    "resolve_artifact_dir",
+]
 
 
 @dataclass(frozen=True)
@@ -34,46 +44,6 @@ class Prediction:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
-
-
-def resolve_artifact_dir(
-    config: ProjectConfig,
-    artifact: str | Path | None = None,
-) -> Path:
-    """Resolve an explicit artifact or the atomically published latest artifact."""
-
-    if artifact is not None:
-        supplied = Path(artifact)
-        path = (
-            supplied.resolve()
-            if supplied.is_absolute()
-            else (config.project_root / supplied).resolve()
-        )
-        if path.name == "manifest.json":
-            path = path.parent
-        if (
-            not (path / "manifest.json").is_file()
-            and not supplied.is_absolute()
-            and len(supplied.parts) == 1
-            and supplied.name not in {"", ".", ".."}
-        ):
-            path = (config.artifacts_dir / supplied.name).resolve()
-    else:
-        latest_path = config.artifacts_dir / "latest.json"
-        if not latest_path.is_file():
-            raise ArtifactError(f"No published model found at {latest_path}")
-        with latest_path.open("r", encoding="utf-8") as handle:
-            latest = json.load(handle)
-        relative = Path(str(latest.get("artifact", "")))
-        if relative.is_absolute() or ".." in relative.parts:
-            raise ArtifactError("latest.json contains an unsafe artifact path")
-        path = (config.artifacts_dir / relative).resolve()
-        if config.artifacts_dir.resolve() not in path.parents:
-            raise ArtifactError("Published artifact resolves outside the artifact directory")
-
-    if not (path / "manifest.json").is_file():
-        raise ArtifactError(f"Model manifest not found in {path}")
-    return path
 
 
 def _part_text(part: Any) -> str:
@@ -124,10 +94,14 @@ class Predictor:
         config: ProjectConfig,
         artifact_dir: Path,
         manifest: dict[str, Any],
+        *,
+        manifest_sha256: str | None = None,
     ) -> None:
+        validate_manifest_fields(manifest)
         self.config = config
         self.artifact_dir = artifact_dir
         self.manifest = manifest
+        self.manifest_sha256 = manifest_sha256
         self.backend = str(manifest["backend"])
         self.threshold = float(manifest["threshold"])
         self.model_version = str(manifest["model_version"])
@@ -138,10 +112,7 @@ class Predictor:
         self.device = None
 
         if self.backend in {"classical", "ensemble"}:
-            model_path = artifact_dir / "model.joblib"
-            if not model_path.is_file():
-                raise ArtifactError(f"Classical model not found: {model_path}")
-            self.classical_model = joblib.load(model_path)
+            self.classical_model = load_classical_model(artifact_dir, manifest)
 
         if self.backend in {"transformer", "ensemble"}:
             self._load_transformer()
@@ -151,26 +122,45 @@ class Predictor:
         cls,
         config: ProjectConfig,
         artifact: str | Path | None = None,
+        *,
+        expected_manifest_sha256: str | None = None,
     ) -> Predictor:
-        artifact_dir = resolve_artifact_dir(config, artifact)
-        with (artifact_dir / "manifest.json").open("r", encoding="utf-8") as handle:
-            manifest = json.load(handle)
-        if manifest.get("schema_version") not in {1, 2}:
-            raise ArtifactError("Unsupported model manifest schema")
-        if manifest.get("backend") not in {"classical", "transformer", "ensemble"}:
-            raise ArtifactError(f"Unsupported model backend: {manifest.get('backend')}")
-        return cls(config, artifact_dir, manifest)
+        """Load a model only after its manifest and payload pass integrity checks."""
+
+        trusted = load_trusted_manifest(
+            config,
+            artifact,
+            expected_manifest_sha256=expected_manifest_sha256,
+        )
+        try:
+            return cls(
+                config,
+                trusted.artifact_dir,
+                trusted.manifest,
+                manifest_sha256=trusted.sha256,
+            )
+        except ArtifactError:
+            raise
+        except (KeyError, TypeError, ValueError, OSError) as error:
+            raise ArtifactError("Model artifact could not be loaded") from error
 
     def _load_transformer(self) -> None:
+        # Verify the complete file set before importing or invoking any loader.
+        model_dir = verify_transformer_payload(self.artifact_dir, self.manifest)
         configure_runtime_cache(self.config)
         import torch
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-        model_dir = self.artifact_dir / "transformer" / "model"
-        if not model_dir.is_dir():
-            raise ArtifactError(f"Transformer model not found: {model_dir}")
-        self.tokenizer = AutoTokenizer.from_pretrained(model_dir)
-        self.transformer_model = AutoModelForSequenceClassification.from_pretrained(model_dir)
+        local_only = {"local_files_only": True, "trust_remote_code": False}
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(model_dir, **local_only)
+            self.transformer_model = AutoModelForSequenceClassification.from_pretrained(
+                model_dir,
+                use_safetensors=True,
+                **local_only,
+            )
+        except (OSError, ValueError) as error:
+            raise ArtifactError("Transformer model could not be loaded") from error
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.transformer_model.to(self.device)
         self.transformer_model.eval()

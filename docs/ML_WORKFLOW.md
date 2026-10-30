@@ -119,6 +119,23 @@ ensemble decisions.
 After selection, training and validation are combined and the chosen architecture is
 refit. The locked threshold is applied once to the untouched three folds.
 
+Validation evidence must never come from that refit, because it trained on the
+validation rows. Before refitting, training freezes the selected candidate's validation
+probabilities in `reports/<run-id>/validation_predictions.csv` (`row_id`, `label`,
+`probability`, plus `classical_probability` and `transformer_probability` for an
+ensemble). Every probability comes from models fitted on the training partition only,
+and the file's SHA-256 is recorded in `report_hashes`. The model, threshold, epoch count,
+and ensemble weight are all locked before the refit starts.
+
+`generalization-report` rebuilds a training-only classical model, as before. For
+transformer and ensemble artifacts it uses only the hash-verified frozen predictions,
+checks that their rows match the re-derived validation partition, and refuses artifacts
+that lack them rather than scoring the refit on validation. The manifest, `metrics.json`,
+and the generalization report all include `metric_provenance`, which names the
+partition, the partitions each fitted state trained on, and what each metric was used
+for. Validation metrics are model-selection evidence: out-of-sample for the weights,
+but optimistic after selection, early stopping, and threshold tuning.
+
 Reported metrics include:
 
 - accuracy and macro F1;
@@ -132,6 +149,26 @@ Reported metrics include:
 Manifest schema 2 records grouping settings, calibration, monitoring baselines,
 dependencies, dataset hashes, report hashes, the model hash, and privacy-scan evidence.
 Inference remains compatible with schema 1 artifacts.
+
+Transformer and ensemble artifacts also record `transformer_files`, a mapping sorted by
+path from each file under `transformer/model/` to its SHA-256 and byte size:
+
+```json
+"transformer_files": {
+  "transformer/model/config.json": {"bytes": 812, "sha256": "<64 hex>"},
+  "transformer/model/model.safetensors": {"bytes": 267832560, "sha256": "<64 hex>"}
+}
+```
+
+Paths are artifact-relative POSIX paths under `transformer/model/`. Absolute paths,
+`.`/`..` segments, backslashes, drive letters, case-insensitive duplicates, links,
+special files, pickle-capable formats (`.bin`, `.pt`, `.pkl`, ...), and Python files
+are rejected. Promotion, packaging, and inference all require exact file-set equality.
+Training removes Trainer scratch output and unselected candidate checkpoints before it
+writes this mapping. An ensemble manifest records both `model_sha256` and
+`transformer_files`, so the manifest hash bound at promotion covers both components.
+The field is additive: classical schema-2 artifacts are unchanged, and transformer or
+ensemble artifacts without it are refused rather than loaded unverified.
 
 ### Release diagnostics
 
@@ -179,7 +216,13 @@ The locked model evaluates all rows at their observed prevalence. Reports includ
 
 The prevalence is explicitly not claimed to represent every production inbox.
 `external_evaluation.lock.json` prevents accidental repeated use of external evidence
-for iterative tuning.
+for iterative tuning. The report, reliability diagram, manifest hashes, `latest.json`
+binding, and lock are committed as one transaction: files are staged and verified,
+the lock is written last, and any failure restores the previous state. The lock binds
+the report, diagram, and resulting manifest, so later edits block promotion. Locked
+evidence is never regenerated; `--skip-external` writes separate
+`internal_generalization_report.json` and `internal_reliability_diagram.svg`, and a new
+evaluation requires training a new artifact version.
 
 For release run `20260725T101318Z`, the blind result is 48.87% macro F1, 96.99%
 phishing recall, 55.96% phishing precision, and an 84.04% false-positive rate. This is
@@ -229,10 +272,46 @@ See [monitoring and rollback](MONITORING_AND_ROLLBACK.md).
 ## 11. Promotion and release
 
 `promote` validates schema 2, payload hashes, report completeness, external lock, and the
-artifact privacy scan before atomically updating `latest.json`. Every promotion is added
-to a history file; `--rollback` revalidates and restores the previous model atomically.
+artifact privacy scan before atomically updating `latest.json` with the validated
+manifest SHA-256. Every promotion is added to a history file; `--rollback` revalidates
+and restores the previous model atomically, refusing a manifest that changed since it
+was promoted. Inference verifies the manifest and payload against these records before
+any deserialization; artifacts without a record require `--manifest-sha256`.
 
-`package-release` includes only:
+### Privacy scan
+
+Training, `promote`, and `package-release` all run the artifact privacy scan, and any
+finding blocks them. Every file except `manifest.json` is read in 1 MiB chunks with a
+512-byte overlap, so matches across chunk boundaries are found and memory does not grow
+with artifact size. Hidden files are scanned; links, special files, and files over 8 GiB
+fail without being opened.
+
+| Category | Detects |
+|---|---|
+| `email_address`, `url`, `phone_number` | Full identifiers that canonicalization should have masked |
+| `payment_card`, `iban`, `long_numeric_identifier` | Card numbers, IBANs, and runs of nine or more digits |
+| `credential_assignment` | `password=`, `api_key:`, bearer tokens, and similar |
+| `street_address` | A house number, one to three words, and a street suffix |
+| `natural_language` | Six or more consecutive alphabetic words |
+| `binary_printable_run` | A printable ASCII run over 256 bytes in a binary payload |
+| `malformed_structured_file`, `link`, `special_file`, `oversized_file`, `unreadable_file` | Payloads that cannot be scanned safely |
+
+JSON files are parsed so only keys and string values are scanned, which keeps settings
+such as `model_max_length` from looking like identifiers. Safetensors headers are parsed
+the same way and their tensor data is scanned as binary. `.txt` files are scanned as
+text, and everything else as binary. The release classical model's longest printable
+run is 88 bytes, well under the 256-byte limit.
+
+The `privacy_scan` manifest field (scan schema 2) records `status`, `files_scanned`,
+`hidden_files_scanned`, `bytes_scanned`, `longest_printable_run`, the `policy` limits,
+`finding_counts` for every category, and at most 50 `findings` of the form
+`{"category", "path", "offset"}`, with `findings_truncated` when there were more.
+Matched values are never stored, logged, or included in error messages.
+
+### Release package
+
+`package-release` copies only the recorded payload files and re-verifies the staged
+copies against the validated manifest before archiving. It includes only:
 
 - model payload and schema-2 manifest;
 - metrics, grouped-CV summary, generalization report, and reliability diagram;

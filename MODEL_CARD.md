@@ -47,6 +47,14 @@ Run `20260725T101318Z` selected the word/character TF-IDF linear SVM at threshol
 | Untouched familiar-source test | 8,470 | 99.45% | 99.25% | 99.65% |
 | Blind SpaPhish v5 | 1,395 | 48.87% | 55.96% | 96.99% |
 
+Locked validation rows come from a model fitted on the training partition only; they
+informed model selection and threshold tuning, so they are optimistic, but never
+in-sample. The untouched test and SpaPhish rows are scored by the final model refitted
+on training plus validation. Future transformer or ensemble releases report validation
+from the frozen pre-refit predictions in `validation_predictions.csv`, never from the
+refit model. The manifest's `metric_provenance` records which fitted state produced
+each metric.
+
 The untouched test Brier score is `0.0072` and ten-bin ECE is `0.0203`. On SpaPhish
 they worsen to `0.3621` and `0.3652`; its false-positive rate is `84.04%`. The model
 therefore does **not** generalize adequately to SpaPhish-like deployment traffic without
@@ -107,8 +115,18 @@ versioned release.
 ## Ethical and privacy considerations
 
 Raw emails may contain personal, sensitive, explicit, or fraudulent content. This
-repository distributes no raw rows. Release artifacts undergo a full-email and long
-numeric identifier scan. Domain/campaign diagnostics use hashed IDs.
+repository distributes no raw rows. Training text is canonicalized first: email local
+parts, phone and account-like identifiers, and URL query values are masked. Before
+promotion and packaging, every artifact file is then scanned in bounded memory for
+email addresses, URLs, phone, card, IBAN, and long numeric identifiers, credential
+assignments, street addresses, runs of six or more prose words, and oversized printable
+runs in binary payloads. Any finding blocks the release; the scan reports categories,
+paths, and offsets but never the matched values. Domain/campaign diagnostics use hashed
+IDs.
+
+The scan reduces but cannot eliminate memorization risk. A TF-IDF vocabulary stores
+individual word and character n-grams from training text, and an isolated token such
+as a first name cannot be distinguished from ordinary vocabulary.
 
 ## License
 
