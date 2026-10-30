@@ -4,6 +4,7 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 
+import matplotlib
 import pytest
 
 from server.flask_app import create_web_app
@@ -258,7 +259,7 @@ def test_browser_test_page_and_diagnostic_charts(
         content = chart.read_text(encoding="utf-8")
         assert content.startswith("<svg")
         assert 'role="img"' in content
-        assert "Matplotlib 3.11.1" in content
+        assert f"Matplotlib {matplotlib.__version__}" in content
         assert "Training run:" in content
         assert diagnostics.run_id not in content
         assert "#2563eb" not in content
